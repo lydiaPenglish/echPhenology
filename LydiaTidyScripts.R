@@ -8,20 +8,28 @@ library(lubridate)
 
 # using this dataset of 2005 - 2015, just need to add 2010
 
-p.05.15 <- read_csv("exPt1Phenology20151130.csv")
+p.05.15x <- read_csv("exPt1Phenology20151130.csv")
+p.10x <- read_delim("2010.CG1.Phenology.txt", delim = ",") # 2010 data
 ped <- read_csv("96979899qGenPedigreeLE.csv")
 rowpos <- read_csv("1996rowPosData.csv")
 
 
 p13x <- read_csv("2013.cg1.phenology.csv") # 2013 data phenology data
 p.05.12x <- read_delim("allYearsNot2010.CG1.Phenology.txt", delim = ",") # 2005-2012 phenology data, no 2010
-p.10x <- read_delim("2010.CG1.Phenology.txt", delim = ",") # 2010 data
 
-
-# all data?
-allP <- read_csv("exPt1Phenology20151130.csv")
 
 # -- data wrangling -- # 
+
+p.10 <- p.10x %>%
+  dplyr::rename("year" = "Year")%>%
+  dplyr::rename("startDtEarly"= "startDateEarly")%>%
+  dplyr::rename("startDtLate" = "startDateEarly")%>%
+  dplyr::rename("endDtEarly"  = "endDateEarly")%>%
+  dplyr::rename("endDtLate"   = "endDateLate")%>%
+  # converting characters into dates
+  mutate_at(vars(startDateEarly:endDateLate), lubridate::ymd_hms)%>%
+  mutate_at(vars(startDateEarly:endDateLate), lubridate::date)
+
 
 p.05.12 <- p.05.12x %>%
   dplyr::rename("cgHdId" = "cgHeadId") %>%
@@ -32,11 +40,7 @@ p.05.12 <- p.05.12x %>%
   mutate_at(vars(startDateEarly:endDateLate), as.character) %>%
   mutate_at(vars(startDateEarly:endDateLate), lubridate::ymd)
 
-p.10 <- p.10x %>%
-  dplyr::rename("year" = "Year")%>%
-  # converting characters into dates
-  mutate_at(vars(startDateEarly:endDateLate), lubridate::ymd_hms)%>%
-  mutate_at(vars(startDateEarly:endDateLate), lubridate::date)
+
 
 p13 <- p13x %>%
   dplyr::rename("year" = "phenYear") %>%
