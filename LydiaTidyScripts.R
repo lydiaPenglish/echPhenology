@@ -28,7 +28,7 @@ p.10 <- p.10x %>%
 p.05.15 <- p.05.15x %>%
   dplyr::rename("year" = "phenYear")%>%
   group_by(year, cgPlaId) %>%
-  mutate(headCt = n()) %>%
+  dplyr::mutate(headCt = n()) %>%
   select(-c(row, pos, ttColor, phenNote, cgHdId))
 
 # -- one row per plant:taking full range of flowering time if plant has multiple heads --# 
@@ -61,152 +61,104 @@ ALL1990s <- p.all %>% filter(cgPlaId < 2500)
 # 1996 dataset
 x1996 <-    p.all %>% filter(cgPlaId < 647) %>%
             # add columns with julian date
-            mutate(startNum = yday(startDtEarly))%>%
-            mutate(endNum   = yday(endDtLate))%>%
+            dplyr::mutate(startNum = yday(startDtEarly))%>%
+            dplyr::mutate(endNum   = yday(endDtLate))%>%
             # add column with the number of times something flowered
             group_by(cgPlaId) %>%
-            mutate(phenCt = n())
+            dplyr::mutate(phenCt = n())
 
-
-# lydia start here!
 # pedigree data 
-ped96 <- ped[ped$cgplaid < 647, ]
-names(ped96)[names(ped96)=="siteOfOriginPedigree"] <- "site"
-names(ped96)[names(ped96)=="cgplaid"] <- "cgPlaId"
-# fixing levels in pedigree data
-levels(ped96$site)[levels(ped96$site) == "AA"] <- "aa"
-levels(ped96$site)[levels(ped96$site) == "Eriley"] <- "eri"
-levels(ped96$site)[levels(ped96$site) == "Lf"] <- "lf"
-levels(ped96$site)[levels(ped96$site) == "NWLF"] <- "nwlf"
-levels(ped96$site)[levels(ped96$site) == "SPP"] <- "spp"
-levels(ped96$site)[levels(ped96$site) == "Stevens"] <- "sap"
-levels(ped96$site)[levels(ped96$site) == "Nessman"] <- "ness"
+ped96 <- ped %>%
+  filter(cgplaid < 647) %>%
+  # rename columns
+  dplyr::rename("site" = "siteOfOriginPedigree")%>%
+  dplyr::rename("cgPlaId" = "cgplaid")%>%
+  # recode levels
+  mutate(site = recode(site, 
+                       "AA" = "aa",
+                       "Eriley" = "eri",
+                       "Lf" = "lf",
+                       "NWLF" = "nwlf",
+                       "SPP" = "spp",
+                       "Stevens" = "sap",
+                       "Nessman" = "ness"
+                       ))
 
 # merging data
-x1996 <- merge(x1996, ped96, by.x = "cgPlaId", by.y = "cgPlaId")
+p1996 <- left_join(x1996, ped96, by = "cgPlaId")%>%
+  # get rid of empty levels
+  filter(site != "",
+         site != "Unknown",
+         site != "Tower",
+         cgPlaId != 0) %>%
+  # add in row position data
+         left_join(., rowpos, by = "cgPlaId")
 
-### get rid of empty levels 
-x1996 <- x1996[x1996$site != "", ]
-x1996 <- x1996[x1996$site != "Unknown", ]
-x1996 <- x1996[x1996$site != "Tower", ] # Only 1 plant flowered
-x1996$site <- x1996$site[ , drop=TRUE]
-levels(x1996$site)
+# -- adding columns for consistency analysis -- #
+  
+# DAM = day after median. Subtracts the median first flowering date of all plants in a year from the 
+  # first flowering date of an individual. Examples: a dam of -5 means a plant flowered 5 days before
+  # the median first day, and a dam of 0 means the plant started flowering on the first day. 
 
-# adding in row and position data 
-x1996 <- merge(x1996, rowpos, by.x = "cgPlaId", by.y = "cgPlaId")
+# DAF = day after first. 
 
-x2013 <- x1996[x1996$year=="2013", ]
-x2012 <- x1996[x1996$year=="2012", ]
-x2011 <- x1996[x1996$year=="2011", ]
-x2010 <- x1996[x1996$year=="2010", ]
-x2009 <- x1996[x1996$year=="2009", ]
-x2008 <- x1996[x1996$year=="2008", ]
-x2007 <- x1996[x1996$year=="2007", ]
-x2006 <- x1996[x1996$year=="2006", ]
-x2005 <- x1996[x1996$year=="2005", ]
+damrank <- p1996 %>%
+  group_by(year)%>%
+  summarize(medianDate = median(startDtEarly)) %>%
+  left_join(p1996, ., by = "year")%>%
+  dplyr::mutate(dam = as.numeric(startDtEarly - medianDate))%>%
+  dplyr::mutate(dur = endNum - startNum)%>%
+  # rank: ranks FFDs (doesn't care if days occur in between)
+  group_by(year) %>%
+  dplyr::mutate(rank = dense_rank(startDtEarly))%>%
+  group_by(year) %>%
+  dplyr::mutate(daf = startDtEarly - min(startDtEarly))
 
+# average DAM
+# exclude plants that just flowered once
+DR_twoPlus <- damrank %>%
+  filter(phenCt >=2)
+DR_twoPlus %>%
+  group_by(cgPlaId)%>%
+  summarize(meanDAM  = mean(dam),
+            varDAM   = var(dam),
+            phenCt   = n())
 
+# -- correlations -- #
 
+# 1. Between start and end time
 
+DAMS %>%
+  ggplot(aes(startNum, endNum))+
+  geom_point()+
+  geom_smooth(method = lm)
+cor.test(~ endNum + startNum, data = damrank) 
 
+# 2. Between duration and head count
+damrank %>%
+  ggplot(aes(headCt, dur))+
+  geom_boxplot(aes(group = headCt))
+# with headCt as continuous
+p1 <- lm(dur ~ poly(headCt, 3), data = DAMS) # fits better with polynomial
+summary(p1)
 
+# -- helpful plots -- #
 
+# 1. Differences in flowering time between years
 
+p1996 %>%
+  ggplot(aes(year, startNum))+
+  geom_point()+
+  ylab("Julian Date")+
+  xlab("Year")+
+  scale_x_continuous(breaks = c(2005,2007,2009, 2011, 2013, 2015))
 
-p.05.12 <- p.05.12x %>%
-  dplyr::rename("cgHdId" = "cgHeadId") %>%
-  # making column for number of heads
-  group_by(year, cgPlaId) %>%
-  mutate(headCt = n()) %>%
-  # converting dates to POSIXt
-  mutate_at(vars(startDateEarly:endDateLate), as.character) %>%
-  mutate_at(vars(startDateEarly:endDateLate), lubridate::ymd)
+# 2. Day after medians
 
-
-
-p13 <- p13x %>%
-  dplyr::rename("year" = "phenYear") %>%
-  dplyr::rename("startDateEarly"= "startDtEarly") %>%
-  dplyr::rename("startDateLate" = "startDtLate") %>%
-  dplyr::rename("endDateEarly"  = "endDtEarly") %>%
-  dplyr::rename("endDateLate"   = "endDtLate") %>%
-  # making column for number of flowering heads
-  group_by(year, cgPlaId) %>%
-  mutate(headCt = n())%>%
-  # converting date-time to just date
-  mutate_at(vars(startDateEarly:endDateLate), lubridate::date)
-
-# merging three datasets together:
-
-p.temp <- bind_rows(p.05.12, p.10) %>%
-          bind_rows(., p13)
-
-# -- one row per plant:taking full range of flowering time if plant has multiple heads --# 
-
-# filter by early and late dates
-starts <- p.temp %>%
-  group_by(year, cgPlaId)%>%
-  filter(startDateEarly == min(startDateEarly))%>%
-  select(year, cgPlaId, startDateEarly, headCt)
-ends <- p.temp %>%
-  group_by(year, cgPlaId)%>%
-  filter(endDateLate    == max(endDateLate)) %>%
-  select(year, cgPlaId, endDateLate, headCt)
-
-# join back togeter
-p.05.13 <- left_join(starts, ends) %>%
-  dplyr::distinct()%>%
-  arrange(year, cgPlaId) %>%
-  # get rid of bad dates
-  filter(startDateEarly > 1940-01-01)%>%
-  filter(endDateLate    > 1940-01-01)
-
-# reference pop
-ALL1990s <- p.05.13 %>% filter(cgPlaId < 2500) 
-
-# 1996
-x1996 <-    p.05.13 %>% filter(cgPlaId < 647)
+damrank %>%
+  ggplot(aes(year, dam))+
+  geom_boxplot(aes(group = year))
 
 
 
 
-
-# checking to make sure this dataset is accurate
-tester <- allP %>%
-  filter(phenYear < 2014)%>%
-  rename("year" = "phenYear")%>%
-  rename("startDateEarly" = "startDtEarly")%>%
-  rename("endDateLate" = "endDtLate")%>%
-  group_by(year, cgPlaId) %>%
-  mutate(headCt = n())%>%
-  select(year, cgPlaId, startDateEarly, endDateLate, headCt)%>%
-  arrange(year, cgPlaId)
-testStart <- tester %>%
-  group_by(year, cgPlaId)%>%
-  filter(startDateEarly == min(startDateEarly))%>%
-  select(year, cgPlaId, startDateEarly, headCt)
-testEnd <- tester %>%
-  group_by(year, cgPlaId)%>%
-  filter(endDateLate    == max(endDateLate)) %>%
-  select(year, cgPlaId, endDateLate, headCt)
-tester2 <- left_join(testStart, testEnd)%>%
-  dplyr::distinct()%>%
-  arrange(year, cgPlaId) %>%
-  # get rid of bad dates
-  filter(startDateEarly > 1940-01-01)%>%
-  filter(endDateLate    > 1940-01-01)
-
-baddies <- anti_join(p.05.13, tester2) # looks good - just need 2010 data
-
-# Formating dates to fit with the phenology package
-p.plant <- updateDT(p.plant, "startDtEarly", "sd.E")
-p.plant <- updateDT(p.plant, "startDtLate", "sd.L")
-p.plant <- updateDT(p.plant, "endDtEarly", "ed.E")
-p.plant <- updateDT(p.plant, "endDtLate", "ed.L")
-
-
-# reference pop
-ALL1990s <- p.plant[p.plant$cgPlaId < 2500, ] 
-
-# 1996
-x1996 <- p.plant[p.plant$cgPlaId < 647, ]
