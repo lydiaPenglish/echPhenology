@@ -112,7 +112,10 @@ damrank <- p1996 %>%
   group_by(year) %>%
   dplyr::mutate(rank = dense_rank(startDtEarly))%>%
   group_by(year) %>%
-  dplyr::mutate(daf = startDtEarly - min(startDtEarly))
+  dplyr::mutate(daf = startDtEarly - min(startDtEarly)) %>%
+  # year as factor
+  ungroup(year)%>%
+  dplyr::mutate(year = forcats::as_factor(year))
 
 # average DAM
 # exclude plants that just flowered once
@@ -149,7 +152,7 @@ summary(p1)
 p1996 %>%
   ggplot(aes(year, startNum))+
   geom_point()+
-  ylab("Julian Date")+
+  ylab("First Flowering Date (julian)")+
   xlab("Year")+
   scale_x_continuous(breaks = c(2005,2007,2009, 2011, 2013, 2015))
 
@@ -160,5 +163,18 @@ damrank %>%
   geom_boxplot(aes(group = year))
 
 
+# -- using rptR to analyze data -- #
+
+# checking out what effects are relevent first
+library(lme4)
+l1 <- lmer(startNum ~ year + (1|cgPlaId), data = damrank)
+summary(l1)
 
 
+r1 <- rptGaussian(startNum ~ (1|cgPlaId), grname = "cgPlaId", data = damrank,
+                  nboot = 1000)
+
+r1 <- rptGaussian(startNum ~ year + (1|cgPlaId), grname = "cgPlaId", data = damrank,
+                  nboot = 1000)
+r1
+summary(r1)
