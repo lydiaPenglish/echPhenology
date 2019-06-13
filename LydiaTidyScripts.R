@@ -3,6 +3,8 @@
 library(tidyverse)
 #library(echPhenology)
 library(lubridate)
+library(lme4)
+library(rptR)
 
 # -- read in datasets -- #
 
@@ -115,7 +117,8 @@ damrank <- p1996 %>%
   dplyr::mutate(daf = startDtEarly - min(startDtEarly)) %>%
   # year as factor
   ungroup(year)%>%
-  dplyr::mutate(year = forcats::as_factor(year))
+  dplyr::mutate(year = forcats::as_factor(as.character(year)))%>%
+  dplyr::mutate(site = forcats::as_factor(site))
 
 # average DAM
 # exclude plants that just flowered once
@@ -142,7 +145,7 @@ damrank %>%
   ggplot(aes(headCt, dur))+
   geom_boxplot(aes(group = headCt))
 # with headCt as continuous
-p1 <- lm(dur ~ poly(headCt, 3), data = DAMS) # fits better with polynomial
+p1 <- lm(dur ~ poly(headCt, 2), data = damrank) # fits better with polynomial
 summary(p1)
 
 # -- helpful plots -- #
@@ -166,15 +169,38 @@ damrank %>%
 # -- using rptR to analyze data -- #
 
 # checking out what effects are relevent first
-library(lme4)
 l1 <- lmer(startNum ~ year + (1|cgPlaId), data = damrank)
 summary(l1)
 
 
-r1 <- rptGaussian(startNum ~ (1|cgPlaId), grname = "cgPlaId", data = damrank,
+r1 <- rpt(startNum ~ (1|cgPlaId), grname = "cgPlaId", data = damrank, datatype = "Gaussian",
                   nboot = 1000)
 
-r1 <- rptGaussian(startNum ~ year + (1|cgPlaId), grname = "cgPlaId", data = damrank,
+r1 <- rpt(startNum ~ year + (1|cgPlaId), grname = "cgPlaId", data = damrank, datatype = "Gaussian",
                   nboot = 1000)
 r1
 summary(r1)
+
+# try adding site as a random effect - phenology not repeatable for site
+r2 <- rpt(startNum ~ year + (1|site), grname = ("site"), data = damrank, datatype  = "Gaussian",
+          nboot = 1000)
+print(r2)
+
+# what about repeatability of headct - Poisson distribution
+
+r3 <- rpt(headCt ~ (1|cgPlaId), grname = "cgPlaId", data = damrank, datatype = "Poisson", nboot = 0)
+print(r3)
+
+# repeatability of duration
+hist(damrank$dur)
+
+r4 <- rpt(dur ~ (1|cgPlaId), grname = "cgPlaId", data = damrank, datatype = "Gaussian", nboot = 1000)
+summary(r4)
+plot(r4)
+
+g1 <- glm(headCt ~ site, family = "poisson", data = damrank)
+summary(g1)
+print(g1)
+damrank %>%
+  ggplot(aes(site, headCt))+
+  geom_boxplot(aes(group = site))
