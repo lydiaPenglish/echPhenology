@@ -1,0 +1,20 @@
+---
+title: "Repeatability of flowering phenology in *Echinacea angustifolia*"
+output:
+  html_document:
+    df_print: paged
+bibliography: echinacea_repeatability.bib
+---
+
+## Introduction
+
+Previous research has suggested that earlier plants are favored, both in *E. angustifolia* and in other plants [@Munguia-Rosas2011].
+
+## Methods
+
+## Results
+
+## Discussion
+
+
+## References
