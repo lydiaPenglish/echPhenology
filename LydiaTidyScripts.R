@@ -180,6 +180,8 @@ r1 <- rpt(startNum ~ year + (1|cgPlaId), grname = "cgPlaId", data = damrank, dat
                   nboot = 1000)
 r1
 summary(r1)
+# try and get Katherine's package to work
+# ggResidpanel::resid_panel(r1)
 
 # try adding site as a random effect - phenology not repeatable for site
 r2 <- rpt(startNum ~ year + (1|site), grname = ("site"), data = damrank, datatype  = "Gaussian",
