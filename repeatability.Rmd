@@ -1,18 +1,40 @@
 ---
 title: "Repeatability of flowering phenology in *Echinacea angustifolia*"
-output:
-  html_document:
-    df_print: paged
+output: html_document
 bibliography: echinacea_repeatability.bib
 ---
 
 ## Introduction
 
-Previous research has suggested that earlier plants are favored, both in *E. angustifolia* and in other plants [@Munguia-Rosas2011].
+Previous research has suggested that flowering earlier is selectively favored, both in *E. angustifolia* and across other plant species [@Munguia-Rosas2011]. If long-lived polycarpic perennials have consistent flowering phenologies, we could assume those individuals have consistent
 
 ## Methods
 
+Plants that have only flowered once during the study period were excluded from the analysis (XX individuals). 
+
+Since year-to-year fluctuations in weather, as well as spring burning, can affect overall timing of flowering phenology (figure X), year was included as a fixed effect in the model. 
+
 ## Results
+
+Repeatibility of flowering time (start date):
+
+```{r}
+library(rptR)
+load("data/phen_dataset.rda")
+r1 <- rpt(startNum ~ year + (1|cgPlaId), grname = "cgPlaId", data = p1996, datatype = "Gaussian",
+                  nboot = 1000)
+summary(r1)
+plot(r1)
+```
+
+Repeatability of flowering duration:
+
+```{r}
+r2 <- rpt(dur ~ year + (1|cgPlaId), grname = "cgPlaId", data = p1996, datatype = "Gaussian",
+                  nboot = 1000)
+summary(r2)
+plot(r2)
+```
 
 ## Discussion
 
