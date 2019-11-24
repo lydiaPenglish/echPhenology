@@ -10,10 +10,12 @@ library(rptR)
 
 # using dataset of 2005 - 2015, just need to add 2010
 
-p.05.15x <- read_csv("data-raw/exPt1Phenology20151130.csv")
-p.10x <- read_delim("data-raw/2010.CG1.Phenology.txt", delim = ",") # 2010 data
-ped <- read_csv("data-raw/96979899qGenPedigreeLE.csv")
-rowpos <- read_csv("data-raw/1996rowPosData.csv")
+
+p.05.17x <- read_csv("exPt1Phenology.csv")
+p.10x <- read_delim("2010.CG1.Phenology.txt", delim = ",") # 2010 data
+ped <- read_csv("96979899qGenPedigreeLE.csv")
+rowpos <- read_csv("1996rowPosData.csv")
+
 
 # -- data wrangling -- # 
 
@@ -27,7 +29,7 @@ p.10 <- p.10x %>%
   mutate_at(vars(startDtEarly:endDtLate), lubridate::ymd_hms)%>%
   mutate_at(vars(startDtEarly:endDtLate), lubridate::date)%>%
   select(-note)
-p.05.15 <- p.05.15x %>%
+p.05.17 <- p.05.17x %>%
   dplyr::rename("year" = "phenYear")%>%
   group_by(year, cgPlaId) %>%
   dplyr::mutate(headCt = n()) %>%
@@ -35,17 +37,17 @@ p.05.15 <- p.05.15x %>%
 
 # -- one row per plant:taking full range of flowering time if plant has multiple heads --# 
 
-starts <- p.05.15 %>%
+starts <- p.05.17 %>%
   group_by(year, cgPlaId)%>%
   filter(startDtEarly == min(startDtEarly))%>%
   select(year, cgPlaId, startDtEarly, headCt)
-ends <-   p.05.15 %>%
+ends <-   p.05.17 %>%
   group_by(year, cgPlaId)%>%
   filter(endDtLate    == max(endDtLate)) %>%
   select(year, cgPlaId, endDtLate, headCt)
 
 # join back togeter
-p.05.15f <- left_join(starts, ends) %>%
+p.05.17f <- left_join(starts, ends) %>%
   dplyr::distinct()%>%
   arrange(year, cgPlaId) %>%
   # get rid of bad dates
@@ -53,7 +55,7 @@ p.05.15f <- left_join(starts, ends) %>%
   filter(endDtLate    > 1940-01-01)
 
 # adding back in 2010 data
-p.all <- bind_rows(p.05.15f, p.10)%>%
+p.all <- bind_rows(p.05.17f, p.10)%>%
   arrange(year, cgPlaId) %>%
   select(-c(endDtEarly, startDtLate))
 
@@ -229,3 +231,44 @@ p1996 %>%
 damrank %>%
   ggplot(aes(year, dam))+
   geom_boxplot(aes(group = year))
+
+# -- using rptR to analyze data -- #
+
+# checking out what effects are relevent first
+l1 <- lmer(startNum ~ year + (1|cgPlaId), data = p1996)
+summary(l1)
+
+
+r1 <- rpt(startNum ~ (1|cgPlaId), grname = "cgPlaId", data = damrank, datatype = "Gaussian",
+                  nboot = 1000)
+
+r1 <- rpt(startNum ~ year + (1|cgPlaId), grname = "cgPlaId", data = damrank, datatype = "Gaussian",
+                  nboot = 1000)
+r1
+summary(r1)
+# try and get Katherine's package to work
+# ggResidpanel::resid_panel(r1)
+
+# try adding site as a random effect - phenology not repeatable for site
+r2 <- rpt(startNum ~ year + ( 1+ year|site), grname = "site", data = damrank, datatype  = "Gaussian")
+print(r2)
+
+# what about repeatability of headct - Poisson distribution
+
+r3 <- rpt(headCt ~ (1|cgPlaId), grname = "cgPlaId", data = damrank, datatype = "Poisson", nboot = 0)
+print(r3)
+
+# repeatability of duration
+hist(damrank$dur)
+
+r4 <- rpt(dur ~ (1|cgPlaId), grname = "cgPlaId", data = damrank, datatype = "Gaussian", nboot = 1000)
+summary(r4)
+plot(r4)
+
+g1 <- glm(headCt ~ site, family = "poisson", data = damrank)
+summary(g1)
+print(g1)
+damrank %>%
+  ggplot(aes(site, headCt))+
+  geom_boxplot(aes(group = site))
+
