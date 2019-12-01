@@ -1,55 +1,63 @@
-### site comparisons - tidied
+# Script to tidy Echinacea phenology data and save as an .rda file or use in a markdown doc
+#       created by:    Lydia English
+#       last modified: 11/24/2019 by LE
 
-library(tidyverse)
-#library(echPhenology)
-library(lubridate)
-library(lme4)
-library(rptR)
+# # Load packages # # 
 
-# -- read in datasets -- #
+library(tidyverse) # using tidy syntax
+library(lubridate) # to help with dates
+library(lme4)      # mixed models
+library(rptR)      # repeatability package
+theme_set(theme_bw())
 
-# using dataset of 2005 - 2015, just need to add 2010
+# # Load phenology datasets # #
 
+p.05.17x <- read_csv("data-raw/exPt1Phenology.csv")                 # data from 2005 - 2017
+p.10x <- read_delim("data-raw/2010.CG1.Phenology.txt", delim = ",") # 2010 data
+ped <- read_csv("data-raw/96979899qGenPedigreeLE.csv")              # pedigree data for site origins
+rowpos <- read_csv("data-raw/1996rowPosData.csv")                   # row/position data
 
-p.05.17x <- read_csv("exPt1Phenology.csv")
-p.10x <- read_delim("2010.CG1.Phenology.txt", delim = ",") # 2010 data
-ped <- read_csv("96979899qGenPedigreeLE.csv")
-rowpos <- read_csv("1996rowPosData.csv")
+# # Data wrangling # # 
 
-
-# -- data wrangling -- # 
-
+# 2010 data 
 p.10 <- p.10x %>%
   dplyr::rename("year" = "Year")%>%
   dplyr::rename("startDtEarly"= "startDateEarly")%>%
   dplyr::rename("startDtLate" = "startDateLate")%>%
   dplyr::rename("endDtEarly"  = "endDateEarly")%>%
   dplyr::rename("endDtLate"   = "endDateLate")%>%
-  # converting characters into dates
+  # converting dates from characters to dates 
   mutate_at(vars(startDtEarly:endDtLate), lubridate::ymd_hms)%>%
   mutate_at(vars(startDtEarly:endDtLate), lubridate::date)%>%
   select(-note)
+
+# 2005 - 2017 data
 p.05.17 <- p.05.17x %>%
   dplyr::rename("year" = "phenYear")%>%
   group_by(year, cgPlaId) %>%
+  # getting number of heads, deleting cgHdId
   dplyr::mutate(headCt = n()) %>%
+  ungroup() %>%
   select(-c(row, pos, ttColor, phenNote, cgHdId))
 
-# -- one row per plant:taking full range of flowering time if plant has multiple heads --# 
+# need one row per plant - consolidating flowering phenology to earliest and latest dates
+#    if a plant has multiple heads
 
+# earliest starts
 starts <- p.05.17 %>%
   group_by(year, cgPlaId)%>%
   filter(startDtEarly == min(startDtEarly))%>%
   select(year, cgPlaId, startDtEarly, headCt)
+# latest ends
 ends <-   p.05.17 %>%
   group_by(year, cgPlaId)%>%
   filter(endDtLate    == max(endDtLate)) %>%
   select(year, cgPlaId, endDtLate, headCt)
 
-# join back togeter
-p.05.17f <- left_join(starts, ends) %>%
-  dplyr::distinct()%>%
+# join starts and ends back together
+p.05.17f <- left_join(starts, ends, by = c("year", "cgPlaId", "headCt")) %>%
   arrange(year, cgPlaId) %>%
+  dplyr::distinct()%>%
   # get rid of bad dates
   filter(startDtEarly > 1940-01-01)%>%
   filter(endDtLate    > 1940-01-01)
@@ -59,17 +67,19 @@ p.all <- bind_rows(p.05.17f, p.10)%>%
   arrange(year, cgPlaId) %>%
   select(-c(endDtEarly, startDtLate))
 
-# reference pop
+# reference pop - 1996, 1997, 1998, 1999
 ALL1990s <- p.all %>% filter(cgPlaId < 2500) 
 
 # 1996 dataset
-x1996 <-    p.all %>% filter(cgPlaId < 647) %>%
+x1996 <-p.all %>% filter(cgPlaId < 647) %>%
             # add columns with julian date
-            dplyr::mutate(startNum = yday(startDtEarly))%>%
-            dplyr::mutate(endNum   = yday(endDtLate))%>%
+          dplyr::mutate(startNum = yday(startDtEarly))%>%
+          dplyr::mutate(endNum   = yday(endDtLate))%>%
             # add column with the number of times something flowered
-            group_by(cgPlaId) %>%
-            dplyr::mutate(phenCt = n())
+          group_by(cgPlaId) %>%
+          dplyr::mutate(phenCt = n()) %>%
+          ungroup() %>%
+          filter(phenCt > 1)
 
 # pedigree data 
 ped96 <- ped %>%
@@ -89,7 +99,7 @@ ped96 <- ped %>%
                        ))
 
 # merging data
-p1996 <- left_join(x1996, ped96, by = "cgPlaId")%>%
+phen_1996 <- left_join(x1996, ped96, by = "cgPlaId")%>%
   # get rid of empty levels
   filter(site != "",
          site != "Unknown",
@@ -99,41 +109,93 @@ p1996 <- left_join(x1996, ped96, by = "cgPlaId")%>%
          left_join(., rowpos, by = "cgPlaId")%>%
   ungroup(year)%>%
   mutate(dur = endNum - startNum)%>%
-  mutate(year = forcats::as_factor(year))
+  mutate(year = forcats::as_factor(year)) %>%
+  group_by(year)%>%
+  mutate(medianDate = median(startDtEarly)) %>%
+  mutate(dam = as.numeric(startDtEarly - medianDate)) %>%
+  dplyr::mutate(rank = dense_rank(startDtEarly))%>%
+  dplyr::mutate(daf = startDtEarly - min(startDtEarly)) %>%
+  ungroup(year) %>%
+  dplyr::mutate(site = forcats::as_factor(site))
 
-# -- saving data for easy access in the future -- # 
+# # saving data for easy access in the future # #  
+save(phen_1996, file = "phen_dataset.rda")
 
-save(p1996, file = "phen_dataset.rda")
+# # trying out a plot where I look at plants that flowered more than 7 times and their spread of flowering times
+phen_1996 %>%
+  filter(phenCt > 7) %>%
+  group_by(cgPlaId) %>%
+  summarize(meanDAM = mean(dam),
+            sdDAM   = sd(dam),
+            n       = n(),
+            seDAM   = sdDAM/sqrt(n))%>%
+  mutate(newID = rank(meanDAM)) %>%
+  ggplot(aes(newID, meanDAM))+
+  geom_point()+
+  geom_errorbar(aes(ymin=meanDAM-seDAM, ymax=meanDAM+seDAM), colour="black", width=.1)
 
+phen_7 <- phen_1996 %>%
+  filter(phenCt > 7) %>%
+  group_by(cgPlaId) %>%
+  mutate(medDAM = median(dam)) %>%
+  ungroup() %>%
+  distinct(cgPlaId, .keep_all = TRUE) %>%
+  arrange(desc(medDAM)) %>%
+  mutate(newID = row_number()) %>%
+  select(cgPlaId, medDAM, newID) %>%
+  left_join(., phen_1996, by = "cgPlaId")
 
-# -- using rptR to analyze data -- #
+phen_7 %>% 
+  ggplot(aes(x = newID, y = dam)) +
+  geom_boxplot(aes(group = newID))+
+  #geom_point(alpha = 0.2)+
+  geom_hline(yintercept = 0, lty = 2) +
+  coord_flip()
+
+# # looking at correlations
+
+# cor between start date and end date
+
+cor(phen_1996$startNum, phen_1996$endNum)
+phen_1996 %>%
+  ggplot(aes(startNum, endNum))+
+  geom_point()
+
+# # using rptR to analyze data # #
 
 # checking out what effects are relevent first
 l1 <- lmer(startNum ~ year + (1|cgPlaId), data = p1996) 
-l2 <- lmer(dur ~ year + (1|cgPlaId), data = p1996)
+l2 <- lmer(dur ~ year + (1|cgPlaId), data = phen_1996) # year matters with duration - why is this? AIC is lower
+l3 <- lmer(dur ~ 1 +    (1|cgPlaId), data = phen_1996)
 summary(l2)
-# year matters
+summary(l3)
+anova(l2, l3)
+# conclusion: use year to analyze both...
 
 # repeatability of start time - including year as fixed effect
-r1 <- rpt(startNum ~ (1|cgPlaId), grname = "cgPlaId", data = damrank, datatype = "Gaussian",
+r1 <- rpt(startNum ~ (1|cgPlaId), grname = "cgPlaId", data = phen_1996, datatype = "Gaussian",
                   nboot = 1000)
-
-r1 <- rpt(startNum ~ year + (1|cgPlaId), grname = "cgPlaId", data = p1996, datatype = "Gaussian",
-                  nboot = 1000)
+# Another version of the same model where you get raw variances for the fixed effect and residuals
+r1 <- rpt(startNum ~ year + (1|cgPlaId), grname = c("cgPlaId", "Fixed", "Residual", "Overdispersion"),
+          data = phen_1996, datatype = "Gaussian",
+                  nboot = 500, npermut = 500, 
+          parallel = TRUE, ratio = FALSE)
 summary(r1)
 
 # try adding site as a random effect instead of cgPlaId - phenology not as repeatable for site
-r2 <- rpt(startNum ~ year + (1|site), grname = ("site"), data = p1996, datatype  = "Gaussian",
-          nboot = 1000)
+r2 <- rpt(startNum ~ 1 + (1|site), grname = ("site"), data = phen_1996, datatype  = "Gaussian",
+          nboot = 0) # why is this a singular fit?
 summary(r2)
 
 # what about repeatability of headct - Poisson distribution
 
-r3 <- rpt(headCt ~ (1|cgPlaId), grname = "cgPlaId", data = p1996, datatype = "Poisson", nboot = 0)
+r3 <- rpt(headCt ~ (1|cgPlaId), grname = "cgPlaId", data = phen_1996, datatype = "Poisson", 
+          nboot = 500)
+summary(r3)
 print(r3)
 
 # repeatability of duration
-p1996 %>%
+phen_1996 %>%
   ggplot(aes(dur))+
   geom_bar(color = "black", fill = "white")+
   xlab("Flowering duration (days)")+
@@ -151,17 +213,33 @@ p1996 %>%
   ggplot(aes(site, headCt))+
   geom_boxplot(aes(group = site))
 
-p1996 %>%
+phen_1996 %>%
   ggplot(aes(headCt, dur))+
   geom_point()+
-  geom_smooth(method = "lm", formula = y ~ poly(x, 3, raw = TRUE), colour = "red")+
+  geom_smooth(method = "lm", formula = y ~ poly(x, 2, raw = TRUE), colour = "red")+
   theme_bw()
+cor(phen_1996$headCt, phen_1996$dur)
 
 g2 <- glm(headCt ~ dur, family = "poisson", data = p1996)
 summary(g2)
 
 g3 <- lm(headCt ~ poly(dur, 4), data = p1996)
 summary(g3)
+
+# - repeatability of DAM - should be the same as adjusted repeatability
+
+rr1 <- rpt(dam ~ 1 + (1|cgPlaId), grname = "cgPlaId", data = phen_1996, datatype = "Gaussian",
+           nboot = 500)
+summary(rr1)
+
+# # Correlation between DAMS in years # # 
+
+cor_tab <- phen_1996 %>%
+  select(cgPlaId, year, dam) %>%
+  pivot_wider(names_from = year, values_from = dam) %>%
+  column_to_rownames("cgPlaId")
+cor(cor_tab, use = "pairwise.complete.obs", method = "spearman")
+cor.test(cor_tab$`2009`, cor_tab$`2005`)
 
 # -- adding columns for consistency analysis -- previous research methods-- #
 
@@ -180,7 +258,6 @@ damrank <- p1996 %>%
   # rank: ranks FFDs (doesn't care if days occur in between)
   group_by(year) %>%
   dplyr::mutate(rank = dense_rank(startDtEarly))%>%
-  group_by(year) %>%
   dplyr::mutate(daf = startDtEarly - min(startDtEarly)) %>%
   # year as factor
   ungroup(year)%>%

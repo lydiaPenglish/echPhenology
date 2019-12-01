@@ -1,42 +1,125 @@
 ---
 title: "Repeatability of flowering phenology in *Echinacea angustifolia*"
+authors: Lydia English and Stuart Wagenius
 output: html_document
 bibliography: echinacea_repeatability.bib
 ---
 
+```{r, include = FALSE}
+library(rptR)
+library(tidyverse)
+library(patchwork)
+theme_set(theme_bw())
+load("data/phen_dataset.rda")
+```
+
 ## Introduction
 
-Previous research has suggested that flowering earlier is selectively favored, both in *E. angustifolia* and across other plant species [@Munguia-Rosas2011]. If long-lived polycarpic perennials have consistent flowering phenologies, we could assume those individuals have consistent
+Previous research has suggested that flowering earlier is selectively favored, both in *E. angustifolia* and across other plant species [@Munguia-Rosas2011]. If long-lived polycarpic perennials have consistent flowering phenologies, we could assume those individuals may have higher or lower consistent fitness advantages. 
+
+Here we are defining repeatability as the consistency of the flowering phenology. In other words it is the variation attributable to between subject differences, rather than within subject variation (which can be thought of as the phenotypic plasticity)
+
+[@Nakagawa2010]
+
+### Questions
+
+  1. Is flowering phenology (i.e. timing) a repeatable trait in the perennial praire plant, *Echinacea angustifolia*?
+  2. Is flowering duration (or head count?) a repeatable trait in *E.angustifolia*?
+  3. Does the repeatability of either of these traits depend on the origin site for this plant?
 
 ## Methods
 
-Plants that have only flowered once during the study period were excluded from the analysis (XX individuals). 
+We used a long-term common garden experiment that was planted with *E.angustifolia* seeds from 8 differen remnant sites in 1996. *E.angustifolia* plants don't usually begin flowering until their third year, and most plants don't flower every year, and instead persisting as basal rosettes [@Wagenius2004].  When they do flower, plants send up at least one (and up to 10) flowering head(s) (capitula). Each flowering head consists of row of sterile ray florets at the base and a series of disk florets. All the anthers in a single row shed pollen on the same day and flowering progresses towards the top of the head. 
 
-Since year-to-year fluctuations in weather, as well as spring burning, can affect overall timing of flowering phenology (figure X), year was included as a fixed effect in the model. 
+Flowering phenology of this common garden experiment has been monitored from 2005 to 2019. Plants were checked every other day. A plant is recorded as having begun flowering when its anthers begin shedding pollen. Plants were monitored until they ended flowering. 
+
+Plants that did not flower (n = 321) or only flowered once (n = 36) during the study period were excluded, which left 289 plants in the analysis. Of those 289 plants, the average number of times an individual flowered was 5.88 (Figure 1).
+
+Since year-to-year fluctuations in weather, can affect overall timing of flowering phenology (2igure X), year was included as a fixed effect in the model. 
+
+We used the first flowering day (FFD) as a proxy for flowering time. The FFD is defined as the first day a flowering head sheds pollen. FFD has been used as measure of flowering phenology both in *E. angustifolia* [] and in other prairie species []. 
+
+We used the R package rptR to analyze the repeatability of flowering phenology [@Stoffel2017].
 
 ## Results
 
-Repeatibility of flowering time (start date):
+```{r, echo = FALSE, warning = FALSE, fig.cap = "Figure 1. Number of times plants flowered during the study period. Plants that flowered zero or one time were excluded from the analysis", fig.height = 2, fig.width= 4} 
 
-```{r}
-library(rptR)
-load("data/phen_dataset.rda")
-r1 <- rpt(startNum ~ year + (1|cgPlaId), grname = "cgPlaId", data = p1996, datatype = "Gaussian",
-                  nboot = 1000)
+phen_1996 %>%
+  ggplot(aes(phenCt))+
+  geom_histogram(stat = "count", fill = "white", color = "black")+
+  labs(x = "Number of times a plant flowered \nwithin the study period",
+       y = NULL)+
+  theme(axis.text    = element_text(size = rel(1.1)),
+        axis.title.x = element_text(size = rel(1.05)))
+
+```
+
+The spread of FFDs varies by year and can be a function of spring weather (Figure 2). More plants flowered in burn years. 
+
+```{r, echo = FALSE, warning = FALSE, fig.cap = "Figure 2. Number of flowering plants per year. Years when the experiment was burned are in red",fig.height = 4, fig.width= 5}
+
+burn_years <- c(2006, 2008, 2011, 2013, 2015)
+
+p1 <- phen_1996 %>%
+  mutate(burn = if_else(year %in% burn_years, "burned", "not_burned")) %>%
+  ggplot(aes(year, startNum))+
+  geom_count(aes(color = burn), alpha = 0.5)+
+  labs(y = "First flowering day \n(Julian number)",
+       x = NULL, 
+       size = "Count")+
+  guides(color = FALSE)+
+  scale_size(range = c(1, 8))+
+  scale_color_manual(values = c("red", "black"))+
+  #scale_size_area(max_size = 8)+
+  theme(axis.text.x = element_blank(),
+        axis.title  = element_text(size = rel(1.1)),
+        legend.background = element_rect(color = "black"))
+
+p2 <- phen_1996 %>%
+   mutate(burn = if_else(year %in% burn_years, "burned", "not_burned")) %>%
+  ggplot(aes(year))+
+  geom_histogram(aes(fill = burn), stat = "count", color = "black")+
+  guides(fill = FALSE)+
+  scale_fill_manual(values = c("red", "black"))+
+  labs(y = "Number of flowering \nplants",
+       x = "Year Sampled")+
+  theme(axis.text.x = element_text(angle = 90, size = rel(1.05)),
+        axis.title  = element_text(size = rel(1.1)))
+
+p1+p2+plot_layout(ncol = 1, heights = c(2, 1))
+```
+
+  Repeatibility of FFD: Repeatability has been adjusted for year due to the year to year fluctuations (Figure 2). To adjust for year, we've included year as a fixed effect in our mixed model [@Stoffel2017]. 
+
+```{r, echo = FALSE, fig.height = 4, fig.width= 5}
+r1 <- rpt(startNum ~ year + (1|cgPlaId), grname = "cgPlaId", data = phen_1996, datatype = "Gaussian", nboot = 0, npermut = 0, parallel = TRUE)
 summary(r1)
-plot(r1)
 ```
 
-Repeatability of flowering duration:
+After adjusting for year, our estimate of the repeatability of FFDs for individuals is 0.237.
 
-```{r}
-r2 <- rpt(dur ~ year + (1|cgPlaId), grname = "cgPlaId", data = p1996, datatype = "Gaussian",
-                  nboot = 1000)
-summary(r2)
-plot(r2)
+Repeatability of FFDs by site:
+
+(Note: we can run the same analysis on FFDs that have been standarized by the median FFD of each year, and therefore remove the "year" adjustment from the model. This yields a similar estimate of consistency (R = 0.236)). 
+
+Repeatability of flowering duration/head count: Once again, we adjust for year in our estimates. 
+
+```{r, echo = FALSE}
+#r2 <- rpt(headCt ~ year + (1|cgPlaId), grname = "cgPlaId", data = phen_1996, datatype = #"Poisson", nboot = 0, npermut = 0, parallel = TRUE)
+#summary(r2)
 ```
+
 
 ## Discussion
 
+
+## Additional notes/questions:
+
+i. Right now we have shown that flowering phenology is a repeatible trait, but we haven't shown whether it's environmental vs. genetic. To tease this apart, it might be beneficial to do some sort of analysis of position in the common garden. If repeatability is spatially autocorrelated, then that might suggest that it's an environmental trait. If it's not, then I think we have stronger evidence that it's genetic. 
+
+ii. Look (or talk about) overlap between early and late flowerers - is there reproductive isolation in the population?
+
+iii. Should I repeat the analysis for the 97, 98, 99 gardens?
 
 ## References
