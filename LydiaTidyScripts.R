@@ -1,6 +1,6 @@
 # Script to tidy Echinacea phenology data and save as an .rda file or use in a markdown doc
 #       created by:    Lydia English
-#       last modified: 11/24/2019 by LE
+#       last modified: 12/1/2019 by LE
 
 # # Load packages # # 
 
@@ -119,7 +119,7 @@ phen_1996 <- left_join(x1996, ped96, by = "cgPlaId")%>%
   dplyr::mutate(site = forcats::as_factor(site))
 
 # # saving data for easy access in the future # #  
-save(phen_1996, file = "phen_dataset.rda")
+# save(phen_1996, file = "phen_dataset.rda")
 
 # # trying out a plot where I look at plants that flowered more than 7 times and their spread of flowering times
 phen_1996 %>%
@@ -152,9 +152,7 @@ phen_7 %>%
   geom_hline(yintercept = 0, lty = 2) +
   coord_flip()
 
-# # looking at correlations
-
-# cor between start date and end date
+# # cor between start date and end date # # 
 
 cor(phen_1996$startNum, phen_1996$endNum)
 phen_1996 %>%
@@ -173,45 +171,70 @@ anova(l2, l3)
 # conclusion: use year to analyze both...
 
 # repeatability of start time - including year as fixed effect
+
+# are the data normal? Pretty much....
+phen_1996 %>% ggplot()+
+  geom_histogram(aes(startNum))+
+  facet_wrap(~year)
+# Models
 r1 <- rpt(startNum ~ (1|cgPlaId), grname = "cgPlaId", data = phen_1996, datatype = "Gaussian",
-                  nboot = 1000)
-# Another version of the same model where you get raw variances for the fixed effect and residuals
-r1 <- rpt(startNum ~ year + (1|cgPlaId), grname = c("cgPlaId", "Fixed", "Residual", "Overdispersion"),
+                  nboot = 0)
+# Another version of the same model where you get raw variances for the fixed effects and residuals
+r1 <- rpt(startNum ~ year + (1|cgPlaId), grname = c("cgPlaId", "Fixed"),
           data = phen_1996, datatype = "Gaussian",
-                  nboot = 500, npermut = 500, 
-          parallel = TRUE, ratio = FALSE)
+                  nboot = 500, npermut = 500, ratio = TRUE,
+          parallel = TRUE)
 summary(r1)
 
 # try adding site as a random effect instead of cgPlaId - phenology not as repeatable for site
-r2 <- rpt(startNum ~ 1 + (1|site), grname = ("site"), data = phen_1996, datatype  = "Gaussian",
-          nboot = 0) # why is this a singular fit?
+phen_1996 %>% 
+  group_by(site, year) %>%
+  summarize(count = n()) %>%
+  ggplot()+
+  geom_col(aes(site, count), color = "black", fill = "white") +
+  labs(x = NULL)+
+  facet_wrap(~year)+
+  theme(axis.text.x = element_text(size = rel(1.1), angle = 45))
+
+# fitting with site only
+r2 <- rpt(startNum ~ year + (1|site), grname = "sit", data = phen_1996, datatype  = "Gaussian",
+          nboot = 100) # why is this a singular fit?
 summary(r2)
 
-# what about repeatability of headct - Poisson distribution
+# fitting with cgPlaID AND site
+r3 <- rpt(startNum ~ year + (1|cgPlaId) + (1|site), grname = c("cgPlaId", "site"), data = phen_1996, datatype = "Gaussian", nboot = 100)
+summary(r3)
+
+# what about repeatability of headct - Poisson distribution?
 
 r3 <- rpt(headCt ~ (1|cgPlaId), grname = "cgPlaId", data = phen_1996, datatype = "Poisson", 
           nboot = 500)
 summary(r3)
 print(r3)
 
-# repeatability of duration
+# repeatability of duration - sort of normally distributed, although left skewed
 phen_1996 %>%
-  ggplot(aes(dur))+
-  geom_bar(color = "black", fill = "white")+
-  xlab("Flowering duration (days)")+
-  theme_bw()
+  ggplot(aes(year, dur))+
+  geom_count(alpha = 0.2)+
+  stat_summary(fun.y = mean,
+               geom = "errorbar",
+               aes(ymax = ..y.., ymin = ..y..),
+               width = 0.4,
+               size = 2)+
+  labs(x = NULL, 
+       y = "Flowering duration (days)",
+       size = "Count")+
+  theme(axis.text.x = element_text(angle = 45, size = rel(1.1), hjust = 1),
+        axis.title.y = element_text(size = rel(1.15)),
+        legend.background = element_rect(color = "black"))
 
-r4 <- rpt(dur ~ (1|cgPlaId), grname = "cgPlaId", data = p1996, datatype = "Gaussian", nboot = 1000)
+r4 <- rpt(dur ~ (1|cgPlaId), grname = "cgPlaId", data = phen_1996, datatype = "Gaussian", nboot = 1000)
+
 r5 <- rpt(dur ~ year + (1|cgPlaId), grname = "cgPlad", data = p1996, datatype = "Gaussian", nboot = 1000)
 summary(r4)
-plot(r4)
 
-g1 <- glm(headCt ~ site, family = "poisson", data = damrank)
-summary(g1)
-
-p1996 %>%
-  ggplot(aes(site, headCt))+
-  geom_boxplot(aes(group = site))
+r6 <- rpt(dur ~ (1|site), grname = "site", data = phen_1996, datatype = "Gaussian", nboot = 100)
+summary(r6)
 
 phen_1996 %>%
   ggplot(aes(headCt, dur))+
@@ -220,17 +243,12 @@ phen_1996 %>%
   theme_bw()
 cor(phen_1996$headCt, phen_1996$dur)
 
-g2 <- glm(headCt ~ dur, family = "poisson", data = p1996)
-summary(g2)
 
-g3 <- lm(headCt ~ poly(dur, 4), data = p1996)
-summary(g3)
-
-# - repeatability of DAM - should be the same as adjusted repeatability
+# # repeatability of DAM - should be the same as adjusted repeatability # #
 
 rr1 <- rpt(dam ~ 1 + (1|cgPlaId), grname = "cgPlaId", data = phen_1996, datatype = "Gaussian",
            nboot = 500)
-summary(rr1)
+summary(rr1) # pretty close
 
 # # Correlation between DAMS in years # # 
 
@@ -238,10 +256,14 @@ cor_tab <- phen_1996 %>%
   select(cgPlaId, year, dam) %>%
   pivot_wider(names_from = year, values_from = dam) %>%
   column_to_rownames("cgPlaId")
-cor(cor_tab, use = "pairwise.complete.obs", method = "spearman")
-cor.test(cor_tab$`2009`, cor_tab$`2005`)
+library(Hmisc)
+cor_info <- rcorr(as.matrix(cor_tab), type = "spearman")
+ff <- data.frame(cor_info$P)
 
-# -- adding columns for consistency analysis -- previous research methods-- #
+library(corrr)
+
+
+# ---- adding columns for consistency analysis -- previous research methods ----
 
 # DAM = day after median. Subtracts the median first flowering date of all plants in a year from the 
 # first flowering date of an individual. Examples: a dam of -5 means a plant flowered 5 days before
@@ -308,44 +330,4 @@ p1996 %>%
 damrank %>%
   ggplot(aes(year, dam))+
   geom_boxplot(aes(group = year))
-
-# -- using rptR to analyze data -- #
-
-# checking out what effects are relevent first
-l1 <- lmer(startNum ~ year + (1|cgPlaId), data = p1996)
-summary(l1)
-
-
-r1 <- rpt(startNum ~ (1|cgPlaId), grname = "cgPlaId", data = damrank, datatype = "Gaussian",
-                  nboot = 1000)
-
-r1 <- rpt(startNum ~ year + (1|cgPlaId), grname = "cgPlaId", data = damrank, datatype = "Gaussian",
-                  nboot = 1000)
-r1
-summary(r1)
-# try and get Katherine's package to work
-# ggResidpanel::resid_panel(r1)
-
-# try adding site as a random effect - phenology not repeatable for site
-r2 <- rpt(startNum ~ year + ( 1+ year|site), grname = "site", data = damrank, datatype  = "Gaussian")
-print(r2)
-
-# what about repeatability of headct - Poisson distribution
-
-r3 <- rpt(headCt ~ (1|cgPlaId), grname = "cgPlaId", data = damrank, datatype = "Poisson", nboot = 0)
-print(r3)
-
-# repeatability of duration
-hist(damrank$dur)
-
-r4 <- rpt(dur ~ (1|cgPlaId), grname = "cgPlaId", data = damrank, datatype = "Gaussian", nboot = 1000)
-summary(r4)
-plot(r4)
-
-g1 <- glm(headCt ~ site, family = "poisson", data = damrank)
-summary(g1)
-print(g1)
-damrank %>%
-  ggplot(aes(site, headCt))+
-  geom_boxplot(aes(group = site))
 
