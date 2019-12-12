@@ -1,6 +1,6 @@
 # Script to tidy Echinacea phenology data and save as an .rda file or use in a markdown doc
 #       created by:    Lydia English
-#       last modified: 12/1/2019 by LE
+#       last modified: 12/12/2019 by LE
 
 # # Load packages # # 
 
@@ -70,8 +70,8 @@ p.all <- bind_rows(p.05.17f, p.10)%>%
 # reference pop - 1996, 1997, 1998, 1999
 ALL1990s <- p.all %>% filter(cgPlaId < 2500) 
 
-# 1996 dataset
-x1996 <-p.all %>% filter(cgPlaId < 647) %>%
+# 1996 and 1997 datasets
+x19967 <- p.all %>% filter(cgPlaId < 1237) %>%
             # add columns with julian date
           dplyr::mutate(startNum = yday(startDtEarly))%>%
           dplyr::mutate(endNum   = yday(endDtLate))%>%
@@ -82,34 +82,40 @@ x1996 <-p.all %>% filter(cgPlaId < 647) %>%
           filter(phenCt > 1)
 
 # pedigree data 
-ped96 <- ped %>%
-  filter(cgplaid < 647) %>%
+ped967 <- ped %>%
+  filter(cgplaid < 1237) %>%
   # rename columns
   dplyr::rename("site" = "siteOfOriginPedigree")%>%
   dplyr::rename("cgPlaId" = "cgplaid")%>%
   # recode levels
   mutate(site = recode(site, 
-                       "AA" = "aa",
-                       "Eriley" = "eri",
-                       "Lf" = "lf",
-                       "NWLF" = "nwlf",
-                       "SPP" = "spp",
+                       "AA"      = "aa",
+                       "Aanenson"= "aa",
+                       "Eriley"  = "eri",
+                       "Riley"   = "ri",
+                       "Lf"      = "lf",
+                       "NWLF"    = "nwlf",
+                       "NWlf"    = "nwlf",
+                       "SPP"     = "spp",
                        "Stevens" = "sap",
+                       "Staff"   = "spp",
                        "Nessman" = "ness"
                        ))
 
 # merging data
-phen_1996 <- left_join(x1996, ped96, by = "cgPlaId")%>%
-  # get rid of empty levels
-  filter(site != "",
-         site != "Unknown",
-         site != "Tower",
-         cgPlaId != 0) %>%
+phen_19967 <- left_join(x19967, ped967, by = "cgPlaId")%>%
+  # get rid of empty levels - I'm going to ignore this for now, since I actually don't care about site origin. 
+   filter(cgPlaId != 0
+    #    site != "",
+    #    site != "Unknown",
+    #    site != "Tower",
+         ) %>%
   # add in row position data
-         left_join(., rowpos, by = "cgPlaId")%>%
+  left_join(., rowpos, by = "cgPlaId")%>%
   ungroup(year)%>%
-  mutate(dur = endNum - startNum)%>%
-  mutate(year = forcats::as_factor(year)) %>%
+  mutate(dur = endNum - startNum,
+         year = forcats::as_factor(year)) %>%
+  filter(dur < 100) %>%
   group_by(year)%>%
   mutate(medianDate = median(startDtEarly)) %>%
   mutate(dam = as.numeric(startDtEarly - medianDate)) %>%
@@ -119,9 +125,16 @@ phen_1996 <- left_join(x1996, ped96, by = "cgPlaId")%>%
   dplyr::mutate(site = forcats::as_factor(site))
 
 # # saving data for easy access in the future # #  
-# save(phen_1996, file = "phen_dataset.rda")
+# save(phen_19967, file = "phen_dataset.rda")
+
+# Also going to save separate dataframes for 1996 and 1997
+phen_1996 <- phen_19967 %>% filter(cgPlaId < 647)
+# save(phen_1996, file = "phen96_dataset.rda")
+phen_1997 <- phen_19967 %>% filter(646 < cgPlaId & cgPlaId < 1237)
+# save(phen_1997, file = "phen97_dataset.rda")
 
 # # trying out a plot where I look at plants that flowered more than 7 times and their spread of flowering times
+# this one has standarized dates (mean +/- error bar)
 phen_1996 %>%
   filter(phenCt > 7) %>%
   group_by(cgPlaId) %>%
@@ -134,6 +147,7 @@ phen_1996 %>%
   geom_point()+
   geom_errorbar(aes(ymin=meanDAM-seDAM, ymax=meanDAM+seDAM), colour="black", width=.1)
 
+# this one has boxplot - more full spread
 phen_7 <- phen_1996 %>%
   filter(phenCt > 7) %>%
   group_by(cgPlaId) %>%
@@ -144,7 +158,6 @@ phen_7 <- phen_1996 %>%
   mutate(newID = row_number()) %>%
   select(cgPlaId, medDAM, newID) %>%
   left_join(., phen_1996, by = "cgPlaId")
-
 phen_7 %>% 
   ggplot(aes(x = newID, y = dam)) +
   geom_boxplot(aes(group = newID))+
@@ -154,7 +167,7 @@ phen_7 %>%
 
 # # cor between start date and end date # # 
 
-cor(phen_1996$startNum, phen_1996$endNum)
+cor(phen_1996$startNum, phen_1996$endNum) # 0.87
 phen_1996 %>%
   ggplot(aes(startNum, endNum))+
   geom_point()
@@ -162,12 +175,15 @@ phen_1996 %>%
 # # using rptR to analyze data # #
 
 # checking out what effects are relevent first
-l1 <- lmer(startNum ~ year + (1|cgPlaId), data = p1996) 
+l1 <- lmer(startNum ~ year + (1|cgPlaId), data = phen_1996) 
+l1b <- lmer(startNum ~ year + (1|cgPlaId) + (1|site), data = phen_1996)
+summary(l1b)
+
 l2 <- lmer(dur ~ year + (1|cgPlaId), data = phen_1996) # year matters with duration - why is this? AIC is lower
 l3 <- lmer(dur ~ 1 +    (1|cgPlaId), data = phen_1996)
 summary(l2)
 summary(l3)
-anova(l2, l3)
+anova(l1, l1b)
 # conclusion: use year to analyze both...
 
 # repeatability of start time - including year as fixed effect
@@ -197,7 +213,7 @@ phen_1996 %>%
   theme(axis.text.x = element_text(size = rel(1.1), angle = 45))
 
 # fitting with site only
-r2 <- rpt(startNum ~ year + (1|site), grname = "sit", data = phen_1996, datatype  = "Gaussian",
+r2 <- rpt(startNum ~ year + (1|site), grname = "site", data = phen_1996, datatype  = "Gaussian",
           nboot = 100) # why is this a singular fit?
 summary(r2)
 
@@ -230,8 +246,8 @@ phen_1996 %>%
 
 r4 <- rpt(dur ~ (1|cgPlaId), grname = "cgPlaId", data = phen_1996, datatype = "Gaussian", nboot = 1000)
 
-r5 <- rpt(dur ~ year + (1|cgPlaId), grname = "cgPlad", data = p1996, datatype = "Gaussian", nboot = 1000)
-summary(r4)
+r5 <- rpt(dur ~ year + (1|cgPlaId), grname = "cgPlaId", data = phen_1996, datatype = "Gaussian", nboot = 1000)
+summary(r5)
 
 r6 <- rpt(dur ~ (1|site), grname = "site", data = phen_1996, datatype = "Gaussian", nboot = 100)
 summary(r6)
@@ -243,8 +259,7 @@ phen_1996 %>%
   theme_bw()
 cor(phen_1996$headCt, phen_1996$dur)
 
-
-# # repeatability of DAM - should be the same as adjusted repeatability # #
+ # # repeatability of DAM - should be the same as adjusted repeatability # #
 
 rr1 <- rpt(dam ~ 1 + (1|cgPlaId), grname = "cgPlaId", data = phen_1996, datatype = "Gaussian",
            nboot = 500)
