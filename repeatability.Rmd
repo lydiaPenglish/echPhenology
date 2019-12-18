@@ -9,7 +9,6 @@ authors: Lydia English and Stuart Wagenius
 library(rptR)
 library(tidyverse)
 library(patchwork)
-library(kableExtra)
 theme_set(theme_bw())
 load("data/phen_dataset.rda")
 ```
@@ -27,7 +26,7 @@ where the numerator is the between group variance, and the denominator is the to
 
   1. Is flowering phenology (i.e. timing) a repeatable trait in the perennial prairie plant, *Echinacea angustifolia*?
   2. Is flowering duration a repeatable trait in *E.angustifolia*?
-  3. Does the repeatability of either of these traits depend on the origin site of these plants?
+  3. Does the repeatability of either of these traits depend on the origin site of these plants? (OR does site explain variation? answer - yes...)
 
 ### Methods
 
@@ -115,7 +114,7 @@ phen_1996 %>%
 Just with site only:
 ```{r, echo=FALSE, warning = FALSE, fig.height = 3, fig.width= 4, fig.align = "center"}
 r2 <- rpt(startNum ~ year + (1|site), grname = "site", data = phen_1996, datatype  = "Gaussian",
-          nboot = 100, npermut = 100, parallel = TRUE) # why is this a singular fit?
+          nboot = 100, npermut = 0) # why is this a singular fit?
 summary(r2)
 plot(r2)
 
@@ -206,5 +205,7 @@ i. Right now we have shown that flowering phenology is a repeatable trait, but w
 ii. It'll also probably be necessary to quantify overlap between early and late flowering individuals so that we can address whether there is reproductive isolation in the population.
 
 iii. Should I repeat the analysis for the 97, 98, 99 gardens? See how they compare?
+
+iv. Age effects: Do plants that are older flower for longer?
 
 ### References
