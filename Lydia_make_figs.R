@@ -10,6 +10,10 @@ library(viridis)
 load("data/phen_dataset.rda") #both 1996 and 1997 dataset
 theme_set(theme_bw())
 
+library(RColorBrewer)
+display.brewer.pal(n = 7, name = 'PuBuGn')
+library(viridis)
+
 # # Summary figs # # 
 
 # Distribution of head count in each year
@@ -85,11 +89,19 @@ phen_19967 %>%
   facet_wrap(~year)
 
 phen_19967 %>%
+  mutate(phenCt_f = as.character(phenCt),
+         phenCt_f = ifelse(phenCt > 7, "8+", phenCt_f))%>%
   ggplot()+
-  #geom_point(data = rowpos, aes(row, pos), size = 0.5)+
-  geom_point(aes(row, pos, size = phenCt), color = "black", fill = "white")
-
-
+  geom_point(data = rowpos, aes(row, pos), size = 0.5)+
+  geom_point(aes(row, pos, color = phenCt_f), size = 2.5)+
+  geom_hline(yintercept = 959.5, lty = 2)+
+  labs(x = NULL, y = NULL, color = "Phenology Count")+
+  scale_color_viridis(discrete = TRUE, direction = -1)+
+  theme(panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank(),
+        legend.position = "bottom",
+        legend.background = element_rect(color = "black"))
+  
 
 # # trying out a plot where I look at plants that flowered more than 7 times and their spread of flowering times
 # this one has standarized dates (mean +/- error bar)
