@@ -8,8 +8,31 @@ data("phen_dataset")
 data("phen96_dataset")
 data("phen97_dataset")
 theme_set(theme_bw())
+library(RColorBrewer)
+brewer.pal(n = 8, name = "Dark2")
 
-# # -- How much does "peak" flowering day vary by year
+# # -- How many sites did plants come from -- # #
+
+ped <- read_csv("data-raw/96979899qGenPedigreeLE.csv") 
+ped_sites <- ped %>%
+  group_by(expNm, siteOfOriginPedigree) %>%
+  summarize(n = n())
+
+# # -- How many plants didn't flower -- # #
+
+rowpos <- read_csv("data-raw/cg1CoreData.csv") %>%
+  select(cgPlaId:yrPlanted) %>%
+  filter(yrPlanted == 1996 | yrPlanted == 1997) %>%
+  mutate(yrPlanted = as.factor(yrPlanted))
+
+phen_19967 %>%
+  anti_join(rowpos, ., by = "cgPlaId") # n = 770
+
+phen_19967 %>%
+  distinct(cgPlaId) %>% tally()
+
+# # -- How much does "peak" flowering day vary by year -- # # 
+
 # what is peak flowering day? 
 # note to self - tibbles don't work with EP packages...(grrrrrrr)
 library(echPhenology)
@@ -90,17 +113,17 @@ for(i in years){
     mutate(mytitle = i) %>%
     ggplot()+
     geom_segment(aes(x = startDtEarly, xend = endDtLate,
-                     y = ord, yend = ord), alpha = 0.5)+
+                     y = ord, yend = ord), alpha = 0.25)+
     labs(x = NULL, y = NULL)+
     geom_vline(xintercept = peak_dt)+
     geom_point(data = count_dates %>% filter(year == i),
-               aes(day, count))+
+               aes(day, count), color = "#7570B3")+
     scale_x_date(limits = c(as.Date(paste(i,"-06-19", sep = "")), as.Date(paste(i,"-09-01", sep = ""))))+
     scale_y_continuous(limits = c(0,300))+
     facet_grid(. ~ mytitle)+
-    theme(strip.text       = element_text(size = rel(1.25)),
-          strip.background = element_rect(color = "black",
-                                          fill = "white"))
+    theme(strip.background = element_rect(color = "black",
+                                          fill = "white"),
+          axis.text.x      = element_text(angle = 45, hjust = 1))
 }
 
 library(patchwork)
@@ -109,31 +132,47 @@ all_FS <- wrap_plots(plot_list[[1]], plot_list[[2]], plot_list[[3]], plot_list[[
            plot_list[[8]], plot_list[[9]], plot_list[[10]], plot_list[[11]], plot_list[[12]], plot_list[[13]])
 ggsave("flowering_schedules.png", plot = all_FS)
 
-iris %>% 
-  rowid_to_column(var = "specimen") %>% 
-  #  gather(contains("."), key = "Measurement", value = "cm") %>% 
-  group_by(Species) %>% 
-  nest %>% 
-  mutate(plot = map2(Species, data,  function (.x,.y){
-    ggplot(data = .y, aes(x =  Sepal.Length, y = Sepal.Width)) +
-      geom_smooth() +
-      ggtitle(label = .x)
-    
-  })) -> iris.with.plots
+# # -- Average duration per flowering head; how much does that vary per year -- # #
 
-my_patchwork = function(data, plot_col="plot") {
-  
-  reduce(data[[plot_col]], `%+%`)
-  
-}
+# need raw data again
+p.05.17x <- read_csv("data-raw/exPt1Phenology.csv") %>%
+  dplyr::rename("year" = "phenYear")%>%
+  group_by(year, cgPlaId) %>%
+  # getting number of heads, deleting cgHdId
+  dplyr::mutate(headCt = n()) %>%
+  ungroup() %>%
+  select(-c(row, pos, ttColor, phenNote)) %>%
+  filter(startDtEarly > 1940-01-01 & endDtLate > 1940-01-01) %>%
+  mutate(dur = as.numeric(endDtLate - startDtEarly),
+         year_f = as.factor(as.character(year))) %>%
+  # this gets out one bad ones (wrong dates or end dates before start dates)
+  filter(dur < 40 & dur > 0)
+# average across all years
+p.05.17x %>%
+  group_by(year) %>%
+  summarize(meanD = mean(dur),
+            sdD   = sd(dur),
+            cvD   = sdD/meanD*100,
+            nD    = n())
 
-iris.with.plots %>% 
-  my_patchwork()
+p2 <- p.05.17x %>%
+  ggplot(aes(year_f, dur))+
+  geom_count()+
+  labs(x = NULL,
+       y = "Flowering duration (days)",
+       size = "Number of flowering heads")+
+  stat_summary(fun.y = mean,
+               geom = "errorbar",
+               aes(ymax = ..y.., ymin = ..y..),
+               width = 0.3,
+               size = 2,
+               color = "#7570B3")+
+  scale_size_continuous(breaks = c(50,100,200,400))+
+  theme(legend.position = "bottom",
+        legend.background = element_rect(color = "black"),
+        axis.title.y = element_text(size = rel(1.1)))
 
-      
-# Average duration per flowering head; how much does that vary per year
-
-
+ggsave("duration_heads.png", plot = p2)
 
 # # -- distribution of head count in each year (in 1996 vs 1997 garden). Evenly spread? 
 
@@ -173,3 +212,20 @@ anova(m2)
 m3 <- lmerTest::lmer(dur ~ burn + headCt + (1|cgPlaId), data = phen_all)
 anova(m3)
 anova(m3, m2) # no difference, shoudl use m3 without interaction term. 
+
+# # -- average phenCt across the study period -- # #
+
+phen_19967 %>%
+  summarize(mPC   = mean(phenCt),
+            maxPC = max(phenCt))
+plot_pc <- phen_19967 %>%
+  ggplot()+
+  geom_bar(aes(phenCt), size = 1, fill = "white", color = "black")+
+  labs(x = "Number of times a plant flowered",
+       y = NULL)+
+  theme(axis.text    = element_text(size = rel(1.15)),
+        axis.title.x = element_text(size = rel(1.5)))
+ggsave("phenCt_hist.png", plot = plot_pc)  
+phen_19967 %>%
+  filter(phenCt > 10) %>%
+  distinct(cgPlaId)

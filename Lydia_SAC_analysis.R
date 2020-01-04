@@ -22,11 +22,24 @@ mantel(dist(p14), dist(phen_19967 %>%
          select(startNum)))
 
 # Moran's I - two different ways. They seem to get similar ish p-values. 
-W <-tri2nb(as.matrix(p13)) #weights with Delauney tesselation
-m1 <- moran.test(phen13$startNum, nb2listw(W))
+# version A - confusing and I'm not sure I understand
+library(spdep)
+p14[sample(nrow(p14)),]
+p14r <- as.matrix(p14[sample(nrow(p14)),])
+
+W <-tri2nb(p14r) #weights with Delauney tesselation
+m1 <- moran.test(phen14$startNum, nb2listw(W))
 print(m1)
 
-# nested data.frame
+# version B - easier to understand, using ape package
+cgdists <- as.matrix(dist(as.matrix(p14)))
+cgdist_inv <- 1/cgdists
+diag(cgdist_inv) <- 0
+m2 <- ape::Moran.I(phen14$startNum, cgdist_inv, alternative = 'greater')
+print(m2)
+
+
+# nested data.frame to calculate all the Moran's
 nest_phen <- phen_19967 %>%
   remove_rownames()%>%
   dplyr::select(year, cgPlaId, row, pos, startNum) %>%
@@ -37,18 +50,26 @@ nest_phen <- phen_19967 %>%
                            %>% as.matrix(.))) %>%
   mutate(dists = purrr::map(data, ~ as.matrix(1/dist(.)))) %>%
   mutate(morans = purrr::map2(startNums, dists,
-                              ~ Moran.I(.x, .y, alternative = 'greater')))
-nest_phen$startNums[[10]]
+                              ~ Moran.I(.x, .y)))
 
-nest_moran$morans # none of the years have significant Moran p-values....
-# why don't they match this...?
 
-as.matrix(p14)
-    
-cgdists <- as.matrix(dist(as.matrix(p14)))
-cgdist_inv <- 1/cgdists
-cgdist_inv
-diag(cgdist_inv) <- 0
-ape::Moran.I(phen14$startNum, cgdist_inv, alternative = 'greater')
-print(m2)
-nest_phen$startNums
+nest_phen$morans[[10]] 
+print(m2) ### YAY they look the same!
+
+# extracting all the Moran info 
+nest_phen$morans
+
+
+p11 <- phen_19967 %>%
+  filter(year == 2011) %>%
+  select(cgPlaId, row, pos) %>%
+  column_to_rownames("cgPlaId")
+phen11 <- phen_19967 %>%
+  filter(year == 2011)
+
+# version B - easier to understand, using ape package
+cgdists11 <- as.matrix(dist(as.matrix(p11)))
+cgdist_inv11 <- 1/cgdists11
+diag(cgdist_inv11) <- 0
+m11 <- ape::Moran.I(phen11$startNum, cgdist_inv11)
+print(m11)

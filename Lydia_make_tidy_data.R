@@ -77,7 +77,12 @@ x19967 <- p.all %>% filter(cgPlaId < 1237) %>%
             # add column with the number of times something flowered
           group_by(cgPlaId) %>%
           dplyr::mutate(phenCt = n()) %>%
-          ungroup() %>%
+          ungroup() 
+# how many plants just flowered once
+x19967 %>%
+  filter(phenCt == 1) %>% distinct(cgPlaId) %>% tally()
+
+x19967 <- x19967 %>%
           filter(phenCt > 1)
 
 # pedigree data 

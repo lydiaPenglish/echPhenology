@@ -12,6 +12,7 @@ theme_set(theme_bw())
 
 library(RColorBrewer)
 display.brewer.pal(n = 7, name = 'PuBuGn')
+
 library(viridis)
 
 # # Summary figs # # 
@@ -81,14 +82,22 @@ rowpos <- read_csv("data-raw/cg1CoreData.csv") %>%
   mutate(yrPlanted = as.factor(yrPlanted))
 
 phen_19967 %>%
-  filter(year != 2017) %>%
+  filter(year == 2005) %>%
   ggplot()+
   geom_point(data = rowpos, aes(row, pos), size = 0.5)+
-  geom_point(aes(row, pos, color = dam))+
+  geom_point(aes(row, pos, color = startNum), size = 3)+
   scale_color_viridis(option="magma")+
-  facet_wrap(~year)
+  theme_bw()
 
 phen_19967 %>%
+  filter(year == 2014) %>%
+  ggplot()+
+  geom_text(aes(row, pos, label = cgPlaId))+
+  theme_bw()
+
+
+
+phen_ct <- phen_19967 %>%
   mutate(phenCt_f = as.character(phenCt),
          phenCt_f = ifelse(phenCt > 7, "8+", phenCt_f))%>%
   ggplot()+
@@ -96,12 +105,26 @@ phen_19967 %>%
   geom_point(aes(row, pos, color = phenCt_f), size = 2.5)+
   geom_hline(yintercept = 959.5, lty = 2)+
   labs(x = NULL, y = NULL, color = "Phenology Count")+
+  coord_fixed()+
   scale_color_viridis(discrete = TRUE, direction = -1)+
   theme(panel.grid.major = element_blank(),
         panel.grid.minor = element_blank(),
         legend.position = "bottom",
         legend.background = element_rect(color = "black"))
-  
+ggsave("cg_phenCt.png", plot = phen_ct)
+
+# regular plot of the common garden experiment
+cg1 <- rowpos %>%
+  ggplot(aes(row, pos))+
+  geom_point()+
+  geom_hline(yintercept = 959.5, lty = 2)+
+  coord_fixed()+
+  labs(x = NULL, y = NULL)
+ggsave("common_garden.png", plot = cg1)
+
+rowpos %>%
+  group_by(yrPlanted) %>%
+  summarize(n = n())
 
 # # trying out a plot where I look at plants that flowered more than 7 times and their spread of flowering times
 # this one has standarized dates (mean +/- error bar)
