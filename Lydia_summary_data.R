@@ -10,6 +10,8 @@ data("phen97_dataset")
 theme_set(theme_bw())
 library(RColorBrewer)
 brewer.pal(n = 8, name = "Dark2")
+my_cols <- c("#1B9E77","#D95F02","#7570B3","#E7298A","#66A61E","#E6AB02",
+             "#A6761D","#666666")
 display.brewer.pal(n = 8, name = "Dark2")
 
 # # -- How many sites did plants come from -- # #
@@ -213,6 +215,57 @@ anova(m2)
 m3 <- lmerTest::lmer(dur ~ burn + headCt + (1|cgPlaId), data = phen_all)
 anova(m3)
 anova(m3, m2) # no difference, shoudl use m3 without interaction term. 
+library(scales)
+years <- seq(as.Date("1910/1/1"), as.Date("1999/1/1"), "years")
+t <- date_trans()
+t$transform(years)
+
+# burn years have more flowers? 
+totals <- phen_19967 %>%
+  group_by(year) %>%
+  summarize(total_phen = n()) %>%
+  mutate(burn = if_else(year %in% burn_years, "burned", "not_burned"))
+
+m4 <- lm(total_phen ~ burn, data = totals)  
+summary(m4)
+anova(m4)
+ggResidpanel::resid_panel(m4)
+confint(m4)
+
+totals %>%
+  ggplot(aes(burn, total_phen))+
+  geom_boxplot()
+
+# # -- graphs of flowering distribution and count, colored by year -- # #
+
+p1 <- phen_all %>%
+  ggplot(aes(year, as.Date(startNum, origin = "2018-01-01")))+
+  geom_count(aes(color = burn), alpha = 0.5)+
+  labs(y = "First flowering day",
+       x = NULL, 
+       size = "Count")+
+  guides(color = FALSE)+
+  scale_size(range = c(1, 8))+
+  scale_color_manual(values = c(my_cols[2], my_cols[8]))+
+  #scale_size_area(max_size = 8)+
+  theme(axis.text.x = element_blank(),
+        axis.title  = element_text(size = rel(1.1)),
+        legend.background = element_rect(color = "black"))
+
+p2 <- phen_19967 %>%
+  mutate(burn = if_else(year %in% burn_years, "burned", "not_burned")) %>%
+  ggplot(aes(year))+
+  geom_histogram(aes(fill = burn), stat = "count", color = "black")+
+  guides(fill = FALSE)+
+  scale_fill_manual(values = c(my_cols[2], my_cols[8]))+
+  labs(y = "# flowering plants",
+       x = "Year Sampled")+
+  theme(axis.text.x = element_text(angle = 90, size = rel(1.05)),
+        axis.title  = element_text(size = rel(1.1)))
+
+patch1 <- p1+p2+plot_layout(ncol = 1, heights = c(2, 1))
+ggsave("flowering_distribution.png", plot = patch1)
+
 
 # # -- average phenCt across the study period -- # #
 
