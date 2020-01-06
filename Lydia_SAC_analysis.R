@@ -7,37 +7,64 @@
 library(tidyverse)
 library(ape)
 library(vegan)
+library(spdep)
 data("phen_dataset")
 
-# try with mantel for a given year
-# testing with 2011 - NS. Could make a function to do this for every year...
+# will use Moran's I from ape package - calculates using Euclidean distances
+
+# example of how to do one....
 p14 <- phen_19967 %>%
   filter(year == 2014) %>%
   select(cgPlaId, row, pos) %>%
   column_to_rownames("cgPlaId")
 phen14 <- phen_19967 %>%
   filter(year == 2014)
-mantel(dist(p14), dist(phen_19967 %>%
-         filter(year == 2014) %>%
-         select(startNum)))
-
-# Moran's I - two different ways. They seem to get similar ish p-values. 
-# version A - confusing and I'm not sure I understand
-library(spdep)
-p14[sample(nrow(p14)),]
-p14r <- as.matrix(p14[sample(nrow(p14)),])
-
-W <-tri2nb(p14r) #weights with Delauney tesselation
-m1 <- moran.test(phen14$startNum, nb2listw(W))
-print(m1)
-
-# version B - easier to understand, using ape package
-cgdists <- as.matrix(dist(as.matrix(p14)))
-cgdist_inv <- 1/cgdists
+cgdists <- as.matrix(dist(as.matrix(p14))) # euclidean distance matrix 
+cgdist_inv <- 1/cgdists # take the inverse
 diag(cgdist_inv) <- 0
 m2 <- ape::Moran.I(phen14$startNum, cgdist_inv, alternative = 'greater')
 print(m2)
 
+years <- phen_19967 %>% select(year) %>% distinct() %>% unlist() %>% unname() %>% as.character(.)
+output <- list()
+# loop 
+for(i in years){
+  p <- phen_19967 %>%
+    filter(year == i) %>%
+    select(cgPlaId, row, pos) %>%
+    column_to_rownames("cgPlaId")
+  pp <- phen_19967 %>%
+    filter(year == i)
+  cgdists <- as.matrix(dist(as.matrix(p))) # euclidean distance matrix 
+  cgdist_inv <- 1/cgdists # take the inverse
+  diag(cgdist_inv) <- 0
+  output[[i]] <-  ape::Moran.I(pp$startNum, cgdist_inv, alternative = 'greater')
+}
+
+# result there is Spatial autocorrelation in some, but not all, years. (roughly half)
+
+moran_output <- output %>%
+  transpose() %>%
+  as_tibble() %>%
+  unnest(cols = c(observed, expected, sd, p.value)) %>%
+  add_column(years, .before = TRUE) %>%
+  mutate(z_score = (observed-expected)/sd,
+         sig     = if_else(p.value < 0.05, "yes", "no"))
+
+moran_output %>%
+  ggplot(aes(years, z_score))+
+  geom_point(aes(color = sig), size = 3)+
+  geom_hline(yintercept = 0, lty = 2)+
+  labs(y = "Z-score", x = NULL,
+       color = "Significant at 0.05?")+
+  theme_bw()+
+  scale_colour_manual(values = c("black", "red"))+
+  theme(legend.position = "bottom",
+        legend.background = element_rect(color = "black"))
+
+
+# ----- old method of nesting dataframe ------
+# isn't reliable!
 
 # nested data.frame to calculate all the Moran's
 nest_phen <- phen_19967 %>%
@@ -52,24 +79,13 @@ nest_phen <- phen_19967 %>%
   mutate(morans = purrr::map2(startNums, dists,
                               ~ Moran.I(.x, .y)))
 
-
 nest_phen$morans[[10]] 
 print(m2) ### YAY they look the same!
 
 # extracting all the Moran info 
 nest_phen$morans
 
+# some of these are significant and some of them are not....now what...?
 
-p11 <- phen_19967 %>%
-  filter(year == 2011) %>%
-  select(cgPlaId, row, pos) %>%
-  column_to_rownames("cgPlaId")
-phen11 <- phen_19967 %>%
-  filter(year == 2011)
 
-# version B - easier to understand, using ape package
-cgdists11 <- as.matrix(dist(as.matrix(p11)))
-cgdist_inv11 <- 1/cgdists11
-diag(cgdist_inv11) <- 0
-m11 <- ape::Moran.I(phen11$startNum, cgdist_inv11)
-print(m11)
+

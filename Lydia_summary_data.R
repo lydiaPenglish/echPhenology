@@ -10,6 +10,7 @@ data("phen97_dataset")
 theme_set(theme_bw())
 library(RColorBrewer)
 brewer.pal(n = 8, name = "Dark2")
+display.brewer.pal(n = 8, name = "Dark2")
 
 # # -- How many sites did plants come from -- # #
 

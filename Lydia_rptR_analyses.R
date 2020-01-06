@@ -18,10 +18,10 @@ l2b <- lmer(dur ~ year + expNm + (1|cgPlaId), data = phen_19967)
 anova(l2, l2b)
 
 
-l3 <- lmer(dur ~ 1 +    (1|cgPlaId), data = phen_1996)
+l3 <- lmer(dur ~ 1 +    (1|cgPlaId), data = phen_19967)
 summary(l2)
 summary(l3)
-anova(l1, l1b)
+anova(l2, l3)
 # conclusion: use year to analyze both...
 
 # repeatability of start time - including year as fixed effect
@@ -33,11 +33,29 @@ phen_19967 %>% ggplot()+
 # Models
 r1 <- rpt(startNum ~ (1|cgPlaId), grname = "cgPlaId", data = phen_19967, datatype = "Gaussian",
           nboot = 0)
-# Another version of the same model where you get raw variances for the fixed effects and residuals
+
+# Now adjusting for year to year variation as well as expNm
 r1 <- rpt(startNum ~ year + yrPlanted + (1|cgPlaId), grname = "cgPlaId",
           data = phen_19967, datatype = "Gaussian",
-          nboot = 500)
+          nboot = 0, npermut = 0)
 summary(r1)
+
+# adding in row and position to see if it changes anything
+r1rp <- rpt(startNum ~ year + yrPlanted + row + pos + (1|cgPlaId), grname = "cgPlaId",
+            data = phen_19967, datatype = "Gaussian",
+            nboot = 0, npermut = 0)
+summary(r1rp)
+
+# testing differences without using rptR
+l4  <- lmer(startNum ~ year + yrPlanted + (1|cgPlaId), data = phen_19967) 
+l4r <- lmer(startNum ~ year + yrPlanted + row + (1|cgPlaId), data = phen_19967)
+l4p <- lmer(startNum ~ year + yrPlanted + pos + (1|cgPlaId), data = phen_19967)
+l4b <- lmer(startNum ~ year + yrPlanted + row + pos + (1|cgPlaId), data = phen_19967)
+anova(l4b)
+
+anova(l4, l4b) # p = 0.014
+anova(l4, l4r) # row doesn't matter
+anova(l4, l4p) # position does matter (should include position....)
 
 # try adding site as a random effect instead of cgPlaId - phenology not as repeatable for site
 phen_1996 %>% 

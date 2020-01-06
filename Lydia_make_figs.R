@@ -81,21 +81,54 @@ rowpos <- read_csv("data-raw/cg1CoreData.csv") %>%
   filter(yrPlanted == 1996 | yrPlanted == 1997) %>%
   mutate(yrPlanted = as.factor(yrPlanted))
 
-phen_19967 %>%
+p05 <- phen_19967 %>%
   filter(year == 2005) %>%
   ggplot()+
-  geom_point(data = rowpos, aes(row, pos), size = 0.5)+
-  geom_point(aes(row, pos, color = startNum), size = 3)+
-  scale_color_viridis(option="magma")+
+  geom_point(data = rowpos, aes(row, pos), size = 0.25)+
+  geom_point(aes(row, pos, color = startNum), size = 1.5)+
+  scale_color_viridis(limits = c(170,210), option="magma")+
+  coord_fixed()+
+  guides(color = FALSE)+
   theme_bw()
+p06 <- phen_19967 %>%
+  filter(year == 2006) %>%
+  ggplot()+
+  geom_point(data = rowpos, aes(row, pos), size = 0.25)+
+  geom_point(aes(row, pos, color = startNum), size = 1.5)+
+  scale_color_viridis(limits = c(170,210), option="magma")+
+  coord_fixed()+
+  guides(color = FALSE)+
+  theme_bw()
+p07 <- phen_19967 %>%
+  filter(year == 2007) %>%
+  ggplot()+
+  geom_point(data = rowpos, aes(row, pos), size = 0.25)+
+  geom_point(aes(row, pos, color = startNum), size = 1.5)+
+  scale_color_viridis(limits = c(170,210), option="magma")+
+  coord_fixed()+
+  theme_bw()
+library(patchwork)
+composite <- (p05+p06+p07 + plot_layout(guides = 'collect'))
+ggsave("ex_startNum050607.png", plot = composite)
+
+all_yrs <- phen_19967 %>%
+  filter(year != "2017") %>%
+  ggplot()+
+  geom_point(data = rowpos, aes(row, pos), size = 0.1)+
+  geom_point(aes(row, pos, color = startNum), size = 1.5)+
+  scale_color_distiller(palette = 'PuBuGn')+
+  #coord_fixed()+
+  theme_bw()+
+  facet_wrap(~year)
+all_yrs
+ggsave("allyrs.png", plot = all_yrs)
 
 phen_19967 %>%
   filter(year == 2014) %>%
   ggplot()+
   geom_text(aes(row, pos, label = cgPlaId))+
+  coord_fixed()+
   theme_bw()
-
-
 
 phen_ct <- phen_19967 %>%
   mutate(phenCt_f = as.character(phenCt),
