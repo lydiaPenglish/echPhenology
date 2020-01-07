@@ -1,130 +1,79 @@
-# # Repeatability Analyses # # 
+# Script to conduct repeatability analysis uses rptR package on FFD and flowering duration
 
 # load packages and dataset
 library(tidyverse)
 library(rptR)
 library(lme4)
+data("phen_dataset")
+my_cols <- c("#1B9E77","#D95F02","#7570B3","#E7298A","#66A61E","#E6AB02",
+             "#A6761D","#666666")
 
 # # using rptR to analyze data # #
 
-# checking out what effects are relevent first
-l1  <- lmer(startNum ~ year + (1|cgPlaId), data = phen_19967) 
-l1b <- lmer(startNum ~ year + expNm + (1|cgPlaId), data = phen_19967)
-summary(l1b)
-anova(l1, l1b) # Hmmm seems like we should adjust for year planted....
+# 1. FFD
 
-l2  <- lmer(dur ~ year + (1|cgPlaId), data = phen_19967) # year matters with duration - why is this? AIC is lower
-l2b <- lmer(dur ~ year + expNm + (1|cgPlaId), data = phen_19967)
-anova(l2, l2b)
+# checking out what factors should be included as fixed effects (aka what should we be adjusting for)
+l1  <- lmer(startNum ~ 1 + (1|cgPlaId), data = phen_19967) 
+l1a <- lmer(startNum ~ year + (1|cgPlaId), data = phen_19967)
+l1b <- lmer(startNum ~ year + yrPlanted + (1|cgPlaId), data = phen_19967)
+anova(l1,  l1a) # Model fits WAY better with year
+anova(l1a, l1b) # surprisingly model fits much better with yrPlanted
 
+# adding in row and position
+l1c <- lmer(startNum ~ year + yrPlanted + row + (1|cgPlaId), data = phen_19967)
+l1d <- lmer(startNum ~ year + yrPlanted + pos + (1|cgPlaId), data = phen_19967)
+l1e <- lmer(startNum ~ year + yrPlanted + row + pos + (1|cgPlaId), data = phen_19967)
+anova(l1c, l1b) # row doesn't matter
+anova(l1d, l1b) # position does matter
+# same results via backwards elimination (vs addition)
 
-l3 <- lmer(dur ~ 1 +    (1|cgPlaId), data = phen_19967)
-summary(l2)
-summary(l3)
-anova(l2, l3)
-# conclusion: use year to analyze both...
-
-# repeatability of start time - including year as fixed effect
-
-# are the data normal? Pretty much....
+# are the FFD data normal? Pretty much....
 phen_19967 %>% ggplot()+
   geom_histogram(aes(startNum))+
   facet_wrap(~year)
-# Models
-r1 <- rpt(startNum ~ (1|cgPlaId), grname = "cgPlaId", data = phen_19967, datatype = "Gaussian",
-          nboot = 0)
 
-# Now adjusting for year to year variation as well as expNm
-r1 <- rpt(startNum ~ year + yrPlanted + (1|cgPlaId), grname = "cgPlaId",
+# repeatbility model with everything adjusted
+r1 <- rpt(startNum ~ year + yrPlanted + row + pos + (1|cgPlaId), grname = "cgPlaId",
           data = phen_19967, datatype = "Gaussian",
-          nboot = 0, npermut = 0)
-summary(r1)
+          nboot = 1000, npermut = 1000, parallel = TRUE)
+summary(r1) 
+# repeatability model without adjusted for row/pos
+r1b <- rpt(startNum ~ year + yrPlanted + (1|cgPlaId), grname = "cgPlaId",
+           data = phen_19967, datatype = "Gaussian",
+           nboot = 1000, npermut = 1000)
+summary(r1b)
 
-# adding in row and position to see if it changes anything
-r1rp <- rpt(startNum ~ year + yrPlanted + row + pos + (1|cgPlaId), grname = "cgPlaId",
-            data = phen_19967, datatype = "Gaussian",
-            nboot = 0, npermut = 0)
-summary(r1rp)
+# 2. Duration
 
-# testing differences without using rptR
-l4  <- lmer(startNum ~ year + yrPlanted + (1|cgPlaId), data = phen_19967) 
-l4r <- lmer(startNum ~ year + yrPlanted + row + (1|cgPlaId), data = phen_19967)
-l4p <- lmer(startNum ~ year + yrPlanted + pos + (1|cgPlaId), data = phen_19967)
-l4b <- lmer(startNum ~ year + yrPlanted + row + pos + (1|cgPlaId), data = phen_19967)
-anova(l4b)
+# checking out what factors should be included as fixed effects (aka what should we be adjusting for)
+l2  <- lmer(dur ~ 1 + (1|cgPlaId), data = phen_19967) 
+l2a <- lmer(dur ~ year + (1|cgPlaId), data = phen_19967)
+l2b <- lmer(dur ~ year + yrPlanted + (1|cgPlaId), data = phen_19967)
+anova(l2,  l2a) # Model fits better with year
+anova(l2a, l2b) # Model also fits better with yrPlanted
 
-anova(l4, l4b) # p = 0.014
-anova(l4, l4r) # row doesn't matter
-anova(l4, l4p) # position does matter (should include position....)
+# adding in row and position
+l2c <- lmer(dur ~ year + yrPlanted + row + (1|cgPlaId), data = phen_19967)
+l2d <- lmer(dur ~ year + yrPlanted + pos + (1|cgPlaId), data = phen_19967)
+l2e <- lmer(dur ~ year + yrPlanted + row + pos + (1|cgPlaId), data = phen_19967)
+anova(l2c, l2b) # row doesn't matter
+anova(l2d, l2b) # position also doesn't matter
+# same results via backwards elimination (vs addition)
 
-# try adding site as a random effect instead of cgPlaId - phenology not as repeatable for site
-phen_1996 %>% 
-  group_by(site, year) %>%
-  summarize(count = n()) %>%
-  ggplot()+
-  geom_col(aes(site, count), color = "black", fill = "white") +
-  labs(x = NULL)+
-  facet_wrap(~year)+
-  theme(axis.text.x = element_text(size = rel(1.1), angle = 45))
+# are the duration data normal? Meh, yeah looks ok...
+phen_19967 %>% ggplot()+
+  geom_histogram(aes(dur))+
+  facet_wrap(~year)
 
-# fitting with site only
-r2 <- rpt(startNum ~ year + (1|site), grname = "site", data = phen_1996, datatype  = "Gaussian",
-          nboot = 100) # why is this a singular fit?
-summary(r2)
-
-# fitting with cgPlaID AND site
-r3 <- rpt(startNum ~ year + (1|cgPlaId) + (1|site), grname = c("cgPlaId", "site"), data = phen_1996, datatype = "Gaussian", nboot = 100)
-summary(r3)
-
-# what about repeatability of headct - Poisson distribution?
-
-r3 <- rpt(headCt ~ (1|cgPlaId), grname = "cgPlaId", data = phen_1996, datatype = "Poisson", 
-          nboot = 500)
-summary(r3)
-print(r3)
-
-# repeatability of duration - sort of normally distributed, although left skewed
-phen_1996 %>%
-  ggplot(aes(year, dur))+
-  geom_count(alpha = 0.2)+
-  stat_summary(fun.y = mean,
-               geom = "errorbar",
-               aes(ymax = ..y.., ymin = ..y..),
-               width = 0.4,
-               size = 2)+
-  labs(x = NULL, 
-       y = "Flowering duration (days)",
-       size = "Count")+
-  theme(axis.text.x = element_text(angle = 45, size = rel(1.1), hjust = 1),
-        axis.title.y = element_text(size = rel(1.15)),
-        legend.background = element_rect(color = "black"))
-
-r4 <- rpt(dur ~ (1|cgPlaId), grname = "cgPlaId", data = phen_1996, datatype = "Gaussian", nboot = 1000)
-
-r5 <- rpt(dur ~ year + (1|cgPlaId), grname = "cgPlaId", data = phen_1996, datatype = "Gaussian", nboot = 1000)
-summary(r5)
-
-r6 <- rpt(dur ~ (1|site), grname = "site", data = phen_1996, datatype = "Gaussian", nboot = 100)
-summary(r6)
-
-phen_1996 %>%
-  ggplot(aes(headCt, dur))+
-  geom_point()+
-  geom_smooth(method = "lm", formula = y ~ poly(x, 2, raw = TRUE), colour = "red")+
-  theme_bw()
-cor(phen_1996$headCt, phen_1996$dur)
-
-# # repeatability of DAM - should be the same as adjusted repeatability # #
-
-rr1 <- rpt(dam ~ 1 + (1|cgPlaId), grname = "cgPlaId", data = phen_1996, datatype = "Gaussian",
-           nboot = 500)
-summary(rr1) # pretty close
-
-
-
-
-
-
-
+# repeatbility model with everything adjusted
+r2 <- rpt(dur ~ year + yrPlanted + row + pos + (1|cgPlaId), grname = "cgPlaId",
+          data = phen_19967, datatype = "Gaussian",
+          nboot = 1000, npermut = 1000)
+summary(r2) 
+# repeatability model without adjusted for row/pos
+r2b <- rpt(dur~ year + yrPlanted + (1|cgPlaId), grname = "cgPlaId",
+           data = phen_19967, datatype = "Gaussian",
+           nboot = 1000, npermut = 1000)
+summary(r2b)
 
 

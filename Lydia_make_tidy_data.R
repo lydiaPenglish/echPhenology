@@ -1,4 +1,4 @@
-# Script to tidy Echinacea phenology data and save as an .rda file or use in a markdown doc
+# Script to tidy Echinacea phenology data and save as an .rda file or use in other analyses
 #       created by:    Lydia English
 #       last modified: 12/15/2019 by LE
 
