@@ -170,6 +170,10 @@ m1 <- lmerTest::lmer(dur ~ headCt + year + expNm + (1|cgPlaId), data = phen_1996
 summary(m1)
 anova(m1)
 
+m2 <- lm(dur ~ headCt + burn, data = phen_all)
+summary(m2)
+car::Anova(m2, type = "II")
+
 # OR.... here I am doing an individual model for each year
 nested_df <- phen_19967 %>%
   group_by(year) %>%
