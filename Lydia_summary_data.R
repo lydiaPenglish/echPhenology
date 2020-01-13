@@ -17,6 +17,11 @@ display.brewer.pal(n = 8, name = "Dark2")
 display.brewer.pal(n = 7, name = 'PuBuGn')
 
 # # -- regular plot of the common garden experiment -- # # 
+rowpos <- read_csv("data-raw/cg1CoreData.csv") %>%
+  select(cgPlaId:yrPlanted) %>%
+  filter(yrPlanted == 1996 | yrPlanted == 1997) %>%
+  mutate(yrPlanted = as.factor(yrPlanted))
+
 cg1 <- rowpos %>%
   ggplot(aes(row, pos))+
   geom_point()+
@@ -34,11 +39,6 @@ ped_sites <- ped %>%
   summarize(n = n())
 
 # # -- How many plants didn't flower -- # #
-
-rowpos <- read_csv("data-raw/cg1CoreData.csv") %>%
-  select(cgPlaId:yrPlanted) %>%
-  filter(yrPlanted == 1996 | yrPlanted == 1997) %>%
-  mutate(yrPlanted = as.factor(yrPlanted))
 
 phen_19967 %>%
   anti_join(rowpos, ., by = "cgPlaId") # n = 770
@@ -157,10 +157,12 @@ ggsave("HeadCt_and_duration.png", plot = hdCt_dur)
 hdCt_96_97 <- phen_19967 %>%
   mutate(expNm = as_factor(as.character(expNm)))%>%
   ggplot(aes(expNm, headCt))+
-  geom_count(alpha = 0.2)+
+  geom_count(alpha = 0.5)+
   facet_wrap(~year)+
-  labs(y = "Head Count", x = NULL)+
+  labs(y = "Head Count", x = NULL, n = "Number of plants")+
+  coord_flip()+
   theme(strip.background = element_rect(fill = "white"))
+hdCt_96_97
 ggsave("hdCt_96_vs_97.png", plot = hdCt_96_97)
 
 # relationship between head Ct and duration 
@@ -202,6 +204,26 @@ dur_hd_yr <- phen_19967 %>%
         axis.title       = element_text(size = rel(1.25)),
         axis.text        = element_text(size = rel(1.2)))
 ggsave("dur_vs_hd_by_yr.png", plot = dur_hd_yr)
+
+# # -- plot of average head count as a function of row/pos -- # # 
+library(viridis)
+avg_hd_ct <- phen_19967 %>%
+  group_by(cgPlaId) %>%
+  mutate(meanHdCt = mean(headCt)) %>%
+  ungroup() %>%
+  distinct(cgPlaId, row, pos, meanHdCt) %>%
+  ggplot()+
+  geom_point(data = rowpos, aes(row, pos), size = 0.25)+
+  geom_point(aes(row, pos, color = meanHdCt), size = 1.5)+
+  geom_hline(yintercept = 959.5, lty = 2)+
+  labs(x = NULL, y = NULL, color = "Avg Head Count")+
+  coord_fixed()+
+  scale_color_viridis(direction = -1)+
+  theme(panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank(),
+        legend.position = "bottom",
+        legend.background = element_rect(color = "black"))
+ggsave("avgHdCt_row_pos.png", plot = avg_hd_ct)
 
 # # -- Average duration per flowering head; how much does that vary per year -- # #
 
