@@ -64,6 +64,45 @@ phen_19967 %>%
   filter(phenCt > 10) %>%
   distinct(cgPlaId)
 
+# # How often did plants flower? I.e. what is the average interval between flowering
+
+fl_intv <- phen_19967 %>%
+  select(cgPlaId, year) %>%
+  arrange(cgPlaId) %>%
+  group_by(cgPlaId) %>%
+  mutate(year = as.numeric(year), 
+         intv = year - lag(year, default = year[1]))
+
+fl_intv_sum <- fl_intv %>%
+  select(-year) %>%
+  filter(intv != 0) %>%
+  summarize(avg_intv = mean(intv),
+            intv_n   = n() + 1) # adding one bc I took out a year when filtering for non-zero values
+fl_intv_sum %>%
+  summarize(mean_tot = mean(avg_intv))
+
+fl_intv_plot <- fl_intv_sum %>%
+  ggplot(aes(avg_intv))+
+  geom_histogram(binwidth = 1, fill = "white", color = "black") +
+  geom_vline(xintercept = 2.13, size = 1.5, lty = 2)+
+  labs(x = "Average number of years \nbetween flowering years",
+       y = NULL)+
+  theme(axis.text  = element_text(size = rel(1.2)),
+        axis.title = element_text(size = rel(1.25)))
+
+ggsave("dist_flowering_interval.png", plot = fl_intv_plot, path = "./figs")
+
+fl_intv %>%
+  filter(intv != 0) %>%
+  ggplot(aes(intv))+
+  geom_histogram(bins = 10, fill = "white", color = "black") +
+  geom_vline(xintercept = 2.13, size = 1.5, lty = 2)+
+  labs(x = "Distribution of average flowering interval",
+       y = NULL)+
+  theme(axis.text  = element_text(size = rel(1.2)),
+        axis.title = element_text(size = rel(1.25)))
+
+
 # # -- graphs of flowering distribution and count, colored by burn vs non-burn yrs -- # #
 burn_years <- c(2006, 2008, 2011, 2013, 2015)
 
