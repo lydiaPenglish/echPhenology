@@ -1,5 +1,6 @@
 # # Script for getting summary data and making summary figures about Echinacea phenology # #
 
+# loading libraries and colors
 library(tidyverse)
 library(lme4)
 library(lmerTest)
@@ -15,8 +16,9 @@ my_cols <- c("#1B9E77","#D95F02","#7570B3","#E7298A","#66A61E","#E6AB02",
              "#A6761D","#666666")
 display.brewer.pal(n = 8, name = "Dark2")
 display.brewer.pal(n = 7, name = 'PuBuGn')
+brewer.pal(n = 7, name = "PuBuGn")
 
-# # -- regular plot of the common garden experiment -- # # 
+# ---- Plot of the common garden experiment ----
 rowpos <- read_csv("data-raw/cg1CoreData.csv") %>%
   select(cgPlaId:yrPlanted) %>%
   filter(yrPlanted == 1996 | yrPlanted == 1997) %>%
@@ -24,21 +26,22 @@ rowpos <- read_csv("data-raw/cg1CoreData.csv") %>%
 
 cg1 <- rowpos %>%
   ggplot(aes(row, pos))+
-  geom_point()+
+  geom_point(shape = 4)+
   geom_hline(yintercept = 959.5, lty = 2)+
   coord_fixed()+
   labs(x = NULL, y = NULL)
+cg1
 ggsave("common_garden.png", plot = cg1)
 
+# ---- Some basic information - short code snippets ----
 
-# # -- How many sites did plants come from -- # #
-
+# 1. Number of sites that plants came from 
 ped <- read_csv("data-raw/96979899qGenPedigreeLE.csv") 
 ped_sites <- ped %>%
   group_by(expNm, siteOfOriginPedigree) %>%
   summarize(n = n())
 
-# # -- How many plants didn't flower -- # #
+# 2. Number of plants that didn't flower 
 
 phen_19967 %>%
   anti_join(rowpos, ., by = "cgPlaId") # n = 770
@@ -46,7 +49,7 @@ phen_19967 %>%
 phen_19967 %>%
   distinct(cgPlaId) %>% tally()
 
-# # -- How many times did plants flower -- # #
+# 3. How many times did plants flower on avg
 
 phen_19967 %>%
   summarize(mPC   = mean(phenCt),
@@ -58,52 +61,118 @@ plot_pc <- phen_19967 %>%
        y = NULL)+
   theme(axis.text    = element_text(size = rel(1.15)),
         axis.title.x = element_text(size = rel(1.5)))
+plot_pc
 ggsave("phenCt_hist.png", plot = plot_pc)  
-# how many plants flowered more than 10 times? Answer = 2
+
+# 4. Number of plants that flowered more than 10 times? Answer = 2
 phen_19967 %>%
   filter(phenCt > 10) %>%
   distinct(cgPlaId)
 
-# # How often did plants flower? I.e. what is the average interval between flowering
+# ---- Avg age of a plant when it first flowered  and flowering interval ----
 
-fl_intv <- phen_19967 %>%
-  select(cgPlaId, year) %>%
-  arrange(cgPlaId) %>%
+# get earliest FFD for each cgPlaId
+minYrsToFl <- phen_19967 %>%
+  group_by(cgPlaId, expNm) %>%
+  summarize(earliest = min(startDtEarly)) %>%         # 3 plants only flowered 2014, 2015 - 362, 552, 1076
+  arrange(desc(earliest)) %>%
+  mutate(minYrFl = year(earliest),
+         YrsToFl = minYrFl - 2005 + 1)
+
+minYrsToFl %>%                                        # majority of plants flowered within first 2 years of experiment, but others waited
+  ggplot(aes(YrsToFl))+
+  geom_bar()    
+
+# cross referencing CG1 core dataset
+
+wide_info <- read_csv("data-raw/cg1CoreData.csv") %>%
+  select(cgPlaId, yrPlanted, starts_with("fl")) %>%
+  filter(yrPlanted == 1996 | yrPlanted == 1997) %>%
+  select(-yrPlanted) %>%
+  pivot_longer(cols = starts_with("fl"), names_to = "year") %>%
+  pivot_wider(names_from = cgPlaId, values_from = value) %>%
+  mutate(year = str_extract_all(year, "(?<=fl)\\d{4}"))
+
+long_info <- read_csv("data-raw/cg1CoreData.csv") %>%
+  select(cgPlaId, yrPlanted, starts_with("fl")) %>%
+  filter(yrPlanted == 1996 | yrPlanted == 1997) %>%
+  pivot_longer(cols = starts_with("fl"), names_to = "year") %>%
+  filter(value != 0)  %>%
+  mutate(year = as.numeric(unlist(str_extract_all(year, "(?<=fl)\\d{4}"))))
+  
+firstYrs <- long_info %>%
   group_by(cgPlaId) %>%
-  mutate(year = as.numeric(year), 
-         intv = year - lag(year, default = year[1]))
+  mutate(firstYr = min(year)) %>%
+  ungroup() %>%
+  distinct(cgPlaId, yrPlanted, firstYr) %>%
+  mutate(ageAtFl = firstYr - yrPlanted)
 
+FYs <- firstYrs %>%
+  ggplot(aes(ageAtFl))+
+  geom_histogram(stat = "count", color = "black", size = 1, fill = "#D0D1E6") +
+  labs(x = "Plant Age", y = NULL)+
+  scale_x_continuous(breaks = c(3, 5, 7, 9, 11, 13, 15, 17, 19, 21)) +
+  facet_grid(rows = vars(yrPlanted))+
+  theme(axis.text        = element_text(size = rel(1.25)),
+        strip.background = element_rect(color = "black", fill = "white"),
+        strip.text       = element_text(size = rel(1.5)),
+        axis.title       = element_text(size = rel(1.3)))
+FYs
+#ggsave("AgePlantsBeginFlowering.png", FYs, path = "./figs")
+
+# looking at flowering interval 
+fl_intv <- long_info %>%
+  select(cgPlaId, year) %>%
+  group_by(cgPlaId) %>%
+  mutate(intv = year - lag(year, default = year[1]))
 fl_intv_sum <- fl_intv %>%
   select(-year) %>%
   filter(intv != 0) %>%
   summarize(avg_intv = mean(intv),
-            intv_n   = n() + 1) # adding one bc I took out a year when filtering for non-zero values
+            phenCt   = n() + 1) # No. of times a plant flowerd, adding one bc I took out a year when filtering for non-zero values
 fl_intv_sum %>%
-  summarize(mean_tot = mean(avg_intv))
+  summarize(mean_tot = mean(avg_intv))       # overall average interval is 2.27yrs
 
+# graphics
+# 1. histogram
 fl_intv_plot <- fl_intv_sum %>%
   ggplot(aes(avg_intv))+
-  geom_histogram(binwidth = 1, fill = "white", color = "black") +
-  geom_vline(xintercept = 2.13, size = 1.5, lty = 2)+
+  geom_histogram(binwidth = 1, fill = "white", color = "black", size = 1) +
+  geom_vline(xintercept = 2.27, size = 1.5, lty = 2)+
   labs(x = "Average number of years \nbetween flowering years",
        y = NULL)+
+  scale_x_continuous(breaks = c(1:12))+
   theme(axis.text  = element_text(size = rel(1.2)),
         axis.title = element_text(size = rel(1.25)))
-
+fl_intv_plot
 ggsave("dist_flowering_interval.png", plot = fl_intv_plot, path = "./figs")
 
-fl_intv %>%
-  filter(intv != 0) %>%
-  ggplot(aes(intv))+
-  geom_histogram(bins = 10, fill = "white", color = "black") +
-  geom_vline(xintercept = 2.13, size = 1.5, lty = 2)+
-  labs(x = "Distribution of average flowering interval",
-       y = NULL)+
-  theme(axis.text  = element_text(size = rel(1.2)),
+# somehow want to visualize interval with phenCt
+
+fl_intv_phenCt <- fl_intv_sum %>%
+  ggplot(aes(phenCt, avg_intv))+
+  geom_boxplot(aes(group = phenCt), size = 1)+
+  geom_jitter(width = 0.25, alpha = 0.5, color = "#A6BDDB")+
+  scale_size_continuous(breaks = c(5,10,15,20))+
+  scale_x_continuous(breaks = c(2, 4, 6, 8, 10, 12, 14, 16))+
+  scale_y_continuous(breaks = c(1, 3, 5, 7, 9, 11, 13))+
+  labs(x = "Number of times plants flowered",
+       y = "Average number of years between \nflowering periods")+
+  theme(axis.text  = element_text(size = rel(1.15)),
         axis.title = element_text(size = rel(1.25)))
+fl_intv_phenCt
+ggsave("fl_interval_phenCt.png", plot = fl_intv_phenCt, path = "./figs")
+
+# calculating for just phenology dataset
+# fl_intv <- phen_19967 %>%
+#   select(cgPlaId, year) %>%
+#   arrange(cgPlaId) %>%
+#   group_by(cgPlaId) %>%
+#   mutate(year = as.numeric(year), 
+#          intv = year - lag(year, default = year[1]))
 
 
-# # -- graphs of flowering distribution and count, colored by burn vs non-burn yrs -- # #
+# ---- graphs of flowering distribution and count, colored by burn vs non-burn yrs ----
 burn_years <- c(2006, 2008, 2011, 2013, 2015)
 
 phen_all <- phen_19967 %>%
@@ -264,7 +333,7 @@ avg_hd_ct <- phen_19967 %>%
         legend.background = element_rect(color = "black"))
 ggsave("avgHdCt_row_pos.png", plot = avg_hd_ct)
 
-# # -- Average duration per flowering head; how much does that vary per year -- # #
+# ---- Average duration per flowering head; how much does that vary per year ----
 
 # need raw data again
 p.05.17x <- read_csv("data-raw/exPt1Phenology.csv") %>%
@@ -306,8 +375,8 @@ p2 <- p.05.17x %>%
 
 ggsave("duration_heads.png", plot = p2)
 
-# # -- Do burn years have a longer flowering duration than non-burn years? Answer = no but
-# head count is associated with duration, which is expected. 
+# ---- Do burn years have a longer flowering duration than non-burn years? ----
+# Answer = no but head count is associated with duration, which is expected. 
 
 burn_years <- c(2006, 2008, 2011, 2013, 2015)
 
@@ -526,6 +595,23 @@ phen_ct <- phen_19967 %>%
         legend.background = element_rect(color = "black"))
 ggsave("cg_phenCt.png", plot = phen_ct)
 
+# ---- How different is flowering time between 1996 adn 1997 garden ---- 
+phen_19967 %>%
+  mutate(expNm = as_factor(as.character(expNm)))%>%
+  ggplot(aes(expNm, startNum))+
+  geom_count(alpha = 0.5)+
+  stat_summary(fun.y = median,
+               geom = "errorbar",
+               aes(ymax = ..y.., ymin = ..y..),
+               width = 0.4,
+               size = 2)+
+  facet_wrap(~year)+
+  labs(y = "Start Num", x = NULL, n = "Number of plants")+
+  coord_flip()+
+  theme(strip.background = element_rect(fill = "white"))
+
+
+
 # ---- Misc other figures, not very useful anymore ----
 
 # # trying out a plot where I look at plants that flowered more than 7 times and their spread of flowering times
@@ -559,3 +645,4 @@ phen_7 %>%
   #geom_point(alpha = 0.2)+
   geom_hline(yintercept = 0, lty = 2) +
   coord_flip() 
+
