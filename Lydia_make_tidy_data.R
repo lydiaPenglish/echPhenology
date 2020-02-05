@@ -1,6 +1,6 @@
 # Script to tidy Echinacea phenology data and save as an .rda file or use in other analyses
 #       created by:    Lydia English
-#       last modified: 12/15/2019 by LE
+#       last modified: 02/05/2020 by LE, updated duration
 
 # # Load packages # # 
 
@@ -78,7 +78,7 @@ x19967 <- p.all %>% filter(cgPlaId < 1237) %>%
           group_by(cgPlaId) %>%
           dplyr::mutate(phenCt = n()) %>%
           ungroup() 
-# how many plants just flowered once
+# how many plants just flowered once: 108
 x19967 %>%
   filter(phenCt == 1) %>% distinct(cgPlaId) %>% tally()
 
@@ -117,7 +117,7 @@ phen_19967 <- left_join(x19967, ped967, by = "cgPlaId")%>%
   # add in row position data
   left_join(., rowpos, by = "cgPlaId")%>%
   ungroup(year)%>%
-  mutate(dur = endNum - startNum,
+  mutate(dur = endNum - startNum + 1,
          year = forcats::as_factor(year)) %>%
   filter(dur < 100) %>%
   group_by(year)%>%
@@ -129,6 +129,7 @@ phen_19967 <- left_join(x19967, ped967, by = "cgPlaId")%>%
   dplyr::mutate(site = forcats::as_factor(site))
 
 # # saving data for easy access in the future # #  
+
 # save(phen_19967, file = "phen_dataset.rda")
 
 # Also going to save separate dataframes for 1996 and 1997
