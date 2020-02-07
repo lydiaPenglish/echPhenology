@@ -27,11 +27,13 @@ rowpos <- read_csv("data-raw/cg1CoreData.csv") %>%
 cg1 <- rowpos %>%
   ggplot(aes(row, pos))+
   geom_point(shape = 4)+
-  geom_hline(yintercept = 959.5, lty = 2)+
+  geom_hline(yintercept = 959.5, lty = 2, size = 1)+
   coord_fixed()+
-  labs(x = NULL, y = NULL)
+  labs(x = NULL, y = NULL)+
+  theme(panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank())
 cg1
-ggsave("common_garden.png", plot = cg1)
+ggsave("common_garden.png", plot = cg1, path = "./figs")
 
 # ---- Some basic information - short code snippets ----
 
