@@ -1,6 +1,6 @@
 # # Script for getting summary data and making summary figures about Echinacea phenology # #
 
-# loading libraries and colors
+# loading libraries and dataframes
 library(tidyverse)
 library(lme4)
 library(lmerTest)
@@ -9,6 +9,18 @@ library(patchwork)
 data("phen_dataset")
 data("phen96_dataset")
 data("phen97_dataset")
+census_dat <- read_csv("data-raw/cg1CoreData.csv") %>%   # getting census data 
+  # filter for columns with just flowering info
+  select(cgPlaId, yrPlanted, starts_with("fl")) %>%
+  # filter for plants in 1996 and 1997 cohort
+  filter(yrPlanted == 1996 | yrPlanted == 1997) %>%
+  # go from wide to long
+  pivot_longer(cols = starts_with("fl"), names_to = "fl_year") %>%
+  filter(value != 0)  %>%
+  # get rid of the "fl" in front of all year values, make numeric
+  mutate(fl_year = as.numeric(unlist(str_extract_all(fl_year, "(?<=fl)\\d{4}"))))
+
+# graphing parameters
 theme_set(theme_bw())
 library(RColorBrewer)
 brewer.pal(n = 8, name = "Dark2")
@@ -52,19 +64,18 @@ phen_19967 %>%
   distinct(cgPlaId) %>% tally()
 
 # 3. How many times did plants flower on avg
+census_phenCt <- census_dat %>%             
+  group_by(cgPlaId)%>%
+  summarize(phenCt = sum(value)) %>%
+  filter(phenCt != 1)
 
-phen_19967 %>%
+census_phenCt %>%                           # mean = 6.63 within census period
   summarize(mPC   = mean(phenCt),
             maxPC = max(phenCt))
-plot_pc <- phen_19967 %>%
-  ggplot()+
-  geom_bar(aes(phenCt), size = 1, fill = "white", color = "black")+
-  labs(x = "Number of times a plant flowered",
-       y = NULL)+
-  theme(axis.text    = element_text(size = rel(1.15)),
-        axis.title.x = element_text(size = rel(1.5)))
-plot_pc
-ggsave("phenCt_hist.png", plot = plot_pc)  
+
+phen_19967 %>%                              # mean = 5.63 within phenology period
+  summarize(mPC   = mean(phenCt),
+            maxPC = max(phenCt))
 
 # 4. Number of plants that flowered more than 10 times? Answer = 2
 phen_19967 %>%
@@ -313,6 +324,7 @@ dur_hd_yr <- phen_19967 %>%
   theme(strip.background = element_rect(fill = "white"),
         axis.title       = element_text(size = rel(1.25)),
         axis.text        = element_text(size = rel(1.2)))
+dur_hd_yr
 ggsave("dur_vs_hd_by_yr.png", plot = dur_hd_yr)
 
 # # -- plot of average head count as a function of row/pos -- # # 

@@ -2,7 +2,15 @@
 
 # load packages and dataset
 library(tidyverse)
+library(psych)
 data("phen_dataset")
+
+# General graphics parameters
+theme_set(theme_bw())
+my_cols <-c("#E6AB02", "#D95F02", "#74C476","#238B45", "#00441B", 
+            "#6BAED6", "#08519C", "#D0D1E6", "#7570B3", "#F781BF",
+            "#A6761D","#666666")
+scales::show_col(my_cols) # To see colors 
 
 # correlatios between (standardized) FFDs of different years
 
@@ -14,7 +22,6 @@ cor_tab <- phen_19967 %>%
   column_to_rownames("cgPlaId")
 
 # Going to use pearson correlation 
-library(psych)
 c1_holm  <- corr.test(cor_tab, use = "pairwise", method = "pearson")
 r_vals <- round(c1_holm$r, 3)
 p_vals <- round(c1_holm$p, 3) # this doesn't look great.... 
@@ -51,7 +58,7 @@ cor_info %>%
   geom_point(aes(size = r, alpha = samp_thres, color = p_value)) +
   geom_abline(slope = 1, intercept = nlevels(cor_info$Var1))+
   scale_y_discrete("", limits = levels(cor_info$Var1)) +
-  scale_color_manual(values = c("#666666", "#7570B3"))+
+  scale_color_manual(values = c(my_cols[12], my_cols[10]))+
   scale_size_area(breaks = c(0, 0.1, 0.2, 0.4, 0.8))+
   labs(x = NULL, y = NULL, size = "Pearson R")+
   guides(alpha = FALSE, color = FALSE)+
