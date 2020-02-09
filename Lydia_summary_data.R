@@ -403,6 +403,7 @@ m2 <- lmerTest::lmer(dur ~ burn + headCt + burn*headCt + (1|cgPlaId), data = phe
 summary(m2)
 anova(m2)
 m3 <- lmerTest::lmer(dur ~ burn + headCt + (1|cgPlaId), data = phen_all)
+summary(m3)
 anova(m3)
 anova(m3, m2) # no difference, shoudl use m3 without interaction term. 
 library(scales)

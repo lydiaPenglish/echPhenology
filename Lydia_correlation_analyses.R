@@ -49,7 +49,7 @@ cor_info <- left_join(melt_n, melt_r, by = c("Var1", "Var2")) %>%
   mutate_at(vars(Var1, Var2), as.character)
 
 # visualization 
-cor_info %>%
+c1 <- cor_info %>%
   # creating extra columns for labeling variables
   mutate(r          = na_if(r, 1),
          samp_thres = if_else(n < 10 , "no", "yes"),
@@ -67,7 +67,7 @@ cor_info %>%
         legend.text          = element_text(size = rel(1.25)),
         legend.title         = element_text(size = rel(1.3)),
         axis.text            = element_text(size = rel(1.1)))
-
+c1
 
 
 

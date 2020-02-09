@@ -5,8 +5,13 @@ library(tidyverse)
 library(rptR)
 library(lme4)
 data("phen_dataset")
-my_cols <- c("#1B9E77","#D95F02","#7570B3","#E7298A","#66A61E","#E6AB02",
-             "#A6761D","#666666")
+
+# General graphics parameters
+theme_set(theme_bw())
+my_cols <-c("#E6AB02", "#D95F02", "#74C476","#238B45", "#00441B", 
+            "#6BAED6", "#08519C", "#D0D1E6", "#7570B3", "#F781BF",
+            "#A6761D","#666666")
+scales::show_col(my_cols) # To see colors 
 
 # # using rptR to analyze data # #
 
@@ -15,9 +20,11 @@ my_cols <- c("#1B9E77","#D95F02","#7570B3","#E7298A","#66A61E","#E6AB02",
 # checking out what factors should be included as fixed effects (aka what should we be adjusting for)
 l1  <- lmer(startNum ~ 1 + (1|cgPlaId), data = phen_19967) 
 l1a <- lmer(startNum ~ year + (1|cgPlaId), data = phen_19967)
+l1c <- lmer(startNum ~ yrPlanted + (1|cgPlaId), data = phen_19967)
 l1b <- lmer(startNum ~ year + yrPlanted + (1|cgPlaId), data = phen_19967)
 anova(l1,  l1a) # Model fits WAY better with year
 anova(l1a, l1b) # surprisingly model fits much better with yrPlanted
+anova(l1, l1c)
 
 # adding in row and position
 l1c <- lmer(startNum ~ year + yrPlanted + row + (1|cgPlaId), data = phen_19967)
@@ -25,6 +32,7 @@ l1d <- lmer(startNum ~ year + yrPlanted + pos + (1|cgPlaId), data = phen_19967)
 l1e <- lmer(startNum ~ year + yrPlanted + row + pos + (1|cgPlaId), data = phen_19967)
 anova(l1c, l1b) # row doesn't matter
 anova(l1d, l1b) # position does matter
+anova(l1e, l1b) # row and position matter
 # same results via backwards elimination (vs addition)
 
 # are the FFD data normal? Pretty much....
@@ -43,6 +51,13 @@ r1b <- rpt(startNum ~ year + yrPlanted + (1|cgPlaId), grname = "cgPlaId",
            nboot = 1000, npermut = 1000)
 summary(r1b)
 
+# same model but using dam instead of start num
+r1c <- rpt(dam ~ yrPlanted + row + pos + (1|cgPlaId), grname = "cgPlaId",
+           data = phen_19967, datatype = "Gaussian",
+           nboot = 1000, npermut = 1000)
+summary(r1c)
+
+
 # 2. Duration
 
 # checking out what factors should be included as fixed effects (aka what should we be adjusting for)
@@ -58,6 +73,7 @@ l2d <- lmer(dur ~ year + yrPlanted + pos + (1|cgPlaId), data = phen_19967)
 l2e <- lmer(dur ~ year + yrPlanted + row + pos + (1|cgPlaId), data = phen_19967)
 anova(l2c, l2b) # row doesn't matter
 anova(l2d, l2b) # position also doesn't matter
+anova(l2e, l2b)
 # same results via backwards elimination (vs addition)
 
 # are the duration data normal? Meh, yeah looks ok...

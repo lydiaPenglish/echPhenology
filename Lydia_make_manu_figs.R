@@ -74,7 +74,7 @@ p2 <- census_dat %>%
   labs(y = NULL,
        x = NULL)+
   theme(axis.text = element_text(size = rel(1.25)))
-
+p2 
 # iii. Phen Count histogram
 
 census_phenCt <- census_dat %>%
@@ -90,7 +90,7 @@ census_phenCt %>%
 
 p3 <- census_phenCt %>%
   ggplot()+
-  geom_bar(aes(phenCt), size = 1, fill = my_cols[8], color = "black")+
+  geom_bar(aes(phenCt), size = 1, fill = my_cols[4], color = "black")+
   labs(x = "Phenology count",
        y = NULL)+
   theme(axis.text    = element_text(size = rel(1.25)),
@@ -116,7 +116,7 @@ fl_intv_sum %>%
             min_tot  = min(avg_intv))  
 p4 <- fl_intv_sum %>%
   ggplot(aes(avg_intv))+
-  geom_histogram(binwidth = 1, fill = my_cols[8], color = "black", size = 1) +
+  geom_histogram(binwidth = 1, fill = my_cols[4], color = "black", size = 1) +
   #geom_vline(xintercept = 2.27, size = 1.5, lty = 2)+
   labs(x = "Average flowering interval",
        y = NULL)+
@@ -157,7 +157,7 @@ b1 <- phen_all %>%
   scale_color_manual(values = c(my_cols[2], my_cols[12]))+
   #scale_size_area(max_size = 8)+
   theme(axis.text.x = element_blank(),
-        axis.title  = element_text(size = rel(1.2)),
+        axis.title  = element_text(size = rel(1.3)),
         legend.background = element_rect(color = "black"))
 b1
 
@@ -177,10 +177,10 @@ b2 <- phen_all %>%
   guides(color = FALSE)+
   scale_size_area()+
   scale_color_manual(values = c(my_cols[2], my_cols[12]))+
-  theme(axis.text.x = element_text(size = rel(1.1)),
-        axis.title.y = element_text(size = rel(1.2)),
+  theme(axis.text.x = element_text(size = rel(1.25)),
+        axis.title.y = element_text(size = rel(1.3)),
         legend.background = element_rect(color = "black"))
-
+b2
 # **** together
 
 b1/b2 + plot_annotation(tag_levels = 'A')
@@ -200,10 +200,10 @@ b1/b2 + plot_annotation(tag_levels = 'A')
 
 # ---- Figure S3. Relationship between head count and duration of flowering time ----
 
-phen_19967 %>%
+h1 <- phen_19967 %>%
   ggplot(aes(headCt, dur))+
   geom_point(alpha = 0.2, size = 2)+
-  geom_smooth(color = my_cols[9], size = 1.3, se = FALSE)+
+  geom_smooth(color = my_cols[10], size = 1.5, se = FALSE)+
   #geom_smooth(method = "lm", se = FALSE, color = my_cols[1], size = 1.25)+
   #geom_smooth(method = "lm", formula = y ~ x + I(x^2), se = FALSE, color = my_cols[2], size = 1.25)+
   #geom_smooth(method = "lm", formula = y ~ x + I(x^3), se = FALSE, color = my_cols[3], size = 1.25)+
@@ -213,4 +213,8 @@ phen_19967 %>%
         strip.text       = element_text(size = rel(1.25)),
         axis.title       = element_text(size = rel(1.25)),
         axis.text        = element_text(size = rel(1.2)))
+h1
 
+# ---- Figure S4. Z-scores for Moran's I analysis of FFD ----
+
+# Plot located in "Lydia_SAC_analysis.R" under 

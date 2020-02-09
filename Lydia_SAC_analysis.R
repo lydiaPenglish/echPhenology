@@ -7,8 +7,12 @@
 library(tidyverse)
 library(ape)
 data("phen_dataset")
-my_cols <- c("#1B9E77","#D95F02","#7570B3","#E7298A","#66A61E","#E6AB02",
-             "#A6761D","#666666")
+# General graphics parameters
+theme_set(theme_bw())
+my_cols <-c("#E6AB02", "#D95F02", "#74C476","#238B45", "#00441B", 
+            "#6BAED6", "#08519C", "#D0D1E6", "#7570B3", "#F781BF",
+            "#A6761D","#666666")
+scales::show_col(my_cols) # To see colors 
 
 # will use Moran's I from ape package - calculates using Euclidean distances
 
@@ -59,14 +63,15 @@ moran_z <- moran_output %>%
   labs(y = "Z-score", x = NULL,
        color = "Significant at 0.05?")+
   theme_bw()+
-  scale_colour_manual(values = c(my_cols[8], my_cols[2]))+
+  scale_colour_manual(values = c(my_cols[12], my_cols[10]))+
   theme(legend.position = "bottom",
         legend.background = element_rect(color = "black"),
-        axis.title.y = element_text(size = rel(1.25)),
-        axis.text    = element_text(size = rel(1.2)),
-        legend.text  = element_text(size = rel(1.2)),
-        legend.title = element_text(size = rel(1.25)))
-ggsave("moran_z-scores.png", plot = moran_z)
+        axis.title.y = element_text(size = rel(1.3)),
+        axis.text    = element_text(size = rel(1.25)),
+        legend.text  = element_text(size = rel(1.25)),
+        legend.title = element_text(size = rel(1.3)))
+moran_z
+#ggsave("moran_z-scores.png", plot = moran_z)
 
 # ----- doing the same thing for flowering duration ----- # 
 
