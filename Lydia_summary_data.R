@@ -130,6 +130,7 @@ FYs <- firstYrs %>%
         strip.background = element_rect(color = "black", fill = "white"),
         strip.text       = element_text(size = rel(1.5)),
         axis.title       = element_text(size = rel(1.3)))
+
 FYs
 #ggsave("AgePlantsBeginFlowering.png", FYs, path = "./figs")
 

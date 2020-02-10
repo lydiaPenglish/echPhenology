@@ -45,6 +45,7 @@ r1 <- rpt(startNum ~ year + yrPlanted + row + pos + (1|cgPlaId), grname = "cgPla
           data = phen_19967, datatype = "Gaussian",
           nboot = 1000, npermut = 1000, parallel = TRUE)
 summary(r1) 
+print(r1)
 # repeatability model without adjusted for row/pos
 r1b <- rpt(startNum ~ year + yrPlanted + (1|cgPlaId), grname = "cgPlaId",
            data = phen_19967, datatype = "Gaussian",
@@ -56,8 +57,8 @@ r1c <- rpt(dam ~ yrPlanted + row + pos + (1|cgPlaId), grname = "cgPlaId",
            data = phen_19967, datatype = "Gaussian",
            nboot = 1000, npermut = 1000)
 summary(r1c)
-
-
+ 
+ 
 # 2. Duration
 
 # checking out what factors should be included as fixed effects (aka what should we be adjusting for)

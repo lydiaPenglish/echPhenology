@@ -43,6 +43,7 @@ firstYrs <- census_dat %>%
 firstYrs %>%
   group_by(yrPlanted) %>%
   summarize(avgAge = mean(ageAtFl),
+            sdAge  = sd(ageAtFl),
             minAge = min(ageAtFl),
             maxAge = max(ageAtFl),
             medAge = median(ageAtFl))
@@ -85,6 +86,7 @@ census_phenCt <- census_dat %>%
 
 census_phenCt %>%
   summarize(meanPC = mean(phenCt),
+            sdPC   = sd(phenCt),
             maxPC  = max(phenCt),
             medPC  = median(phenCt))
 
@@ -111,6 +113,7 @@ fl_intv_sum <- fl_intv %>%
             phenCt   = n() + 1) # No. of times a plant flowerd, adding one bc I took out a year when filtering for non-zero values
 fl_intv_sum %>%
   summarize(mean_tot = mean(avg_intv),
+            sd_tot   = sd(avg_intv),
             med_tot  = median(avg_intv),
             max_tot  = max(avg_intv),
             min_tot  = min(avg_intv))  
