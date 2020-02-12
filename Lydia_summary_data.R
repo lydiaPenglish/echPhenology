@@ -428,6 +428,26 @@ totals %>%
   ggplot(aes(burn, total_phen))+
   geom_boxplot()
 
+# ---- Is the FFD different between burn and non-burn years? Yes ---- 
+
+burn_years <- c(2006, 2008, 2011, 2013, 2015)
+
+phen_all <- phen_19967 %>%
+  mutate(burn = if_else(year %in% burn_years, "burned", "not_burned"))
+
+l1 <- lm(startNum ~ burn, data = phen_all)
+summary(l1)
+
+# summary stat 
+phen_summary <- phen_all %>%
+  group_by(year) %>%
+  summarize(avg_ffd = mean(startNum),
+            n_ffd   = n(),
+            sd_ffd  = sd(startNum)) %>%
+  mutate(burn = if_else(year %in% burn_years, "burned", "not_burned")) 
+
+l2 <- lm(avg_ffd ~ burn, data = phen_summary)
+summary(l2)
 
 # ---- How much does "peak" flowering day vary by year ----
 
