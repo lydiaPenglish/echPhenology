@@ -93,4 +93,24 @@ r2b <- rpt(dur~ year + yrPlanted + (1|cgPlaId), grname = "cgPlaId",
            nboot = 1000, npermut = 1000)
 summary(r2b)
 
+# 3. Is repeatability stronger as plants flower more?
 
+# try with 5 or more times - 233 plants, less repeatible
+phen_5 <- phen_19967 %>%
+  filter(phenCt > 4) 
+
+
+# repeatbility model with everything adjusted
+r3 <- rpt(startNum ~ year + yrPlanted + row + pos + (1|cgPlaId), grname = "cgPlaId",
+          data = phen_5, datatype = "Gaussian",
+          nboot = 1000, npermut = 0, parallel = TRUE)
+
+# try with 5 or less times - 234 plants, more repeatable (R = 0.28)
+
+phen_4 <- phen_19967 %>%
+  filter(phenCt < 5) 
+
+r4 <- rpt(startNum ~ year + yrPlanted + row + pos + (1|cgPlaId), grname = "cgPlaId",
+          data = phen_4, datatype = "Gaussian",
+          nboot = 1000, npermut = 0, parallel = TRUE)
+summary(r4)

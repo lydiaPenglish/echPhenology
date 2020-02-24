@@ -391,28 +391,26 @@ p2 <- p.05.17x %>%
 ggsave("duration_heads.png", plot = p2)
 
 # ---- Do burn years have a longer flowering duration than non-burn years? ----
-# Answer = no but head count is associated with duration, which is expected. 
+
 
 burn_years <- c(2006, 2008, 2011, 2013, 2015)
 
 phen_all <- phen_19967 %>%
   mutate(burn = if_else(year %in% burn_years, "burned", "not_burned"))
 
-m1 <- lm(dur ~ burn:headCt, data = phen_all)
+# mixed model, just looking at burn/not burn
+m1 <- lmerTest::lmer(dur ~ burn + (1|cgPlaId), data = phen_all)
 summary(m1)
-m2 <- lmerTest::lmer(dur ~ burn + headCt + burn*headCt + (1|cgPlaId), data = phen_all)
-summary(m2)
-anova(m2)
-m3 <- lmerTest::lmer(dur ~ burn + headCt + (1|cgPlaId), data = phen_all)
-summary(m3)
-anova(m3)
-anova(m3, m2) # no difference, shoudl use m3 without interaction term. 
-library(scales)
-years <- seq(as.Date("1910/1/1"), as.Date("1999/1/1"), "years")
-t <- date_trans()
-t$transform(years)
+anova(m1)
+ggResidpanel::resid_panel(m1)
 
-# burn years have more flowers? 
+# wilcoxon rank sum test
+
+w1 <- wilcox.test(dur ~ burn, phen_all)
+w1
+
+
+# burn years have more flowering plants? 
 totals <- phen_19967 %>%
   group_by(year) %>%
   summarize(total_phen = n()) %>%
@@ -437,6 +435,9 @@ phen_all <- phen_19967 %>%
 
 l1 <- lm(startNum ~ burn, data = phen_all)
 summary(l1)
+l2 <- lmer(startNum ~ burn + (1|cgPlaId), data = phen_all)
+summary(l2)
+anova(l2)
 
 # summary stat 
 phen_summary <- phen_all %>%
@@ -448,6 +449,27 @@ phen_summary <- phen_all %>%
 
 l2 <- lm(avg_ffd ~ burn, data = phen_summary)
 summary(l2)
+
+# ---- Do plants that flower earlier have more heads? FINISH later ----
+# first try with one year 
+phen_2006 <- phen_19967 %>% filter(year == "2006")
+
+g1 <- glm(headCt ~ startNum, family = poisson(), data = phen_2006)
+summary(g1)
+ggResidpanel::resid_panel(g1)
+
+hist(phen_2006$headCt)
+
+phen_19967 %>%
+  ggplot(aes(startNum, headCt))+
+  geom_count(alpha = 0.25) +
+  facet_wrap(~year)
+
+# try as a mixed model
+
+g2 <- lme4::glmer(headCt ~ startNum + (1|cgPlaId), family = poisson,
+                  data = phen_19967)
+summary(g2)
 
 # ---- How much does "peak" flowering day vary by year ----
 
