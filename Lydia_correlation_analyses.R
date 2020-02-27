@@ -24,10 +24,11 @@ cor_tab_ffd <- phen_19967 %>%
 
 # Doing both pearson and spearman - going to use spearman bc then it ranks
 ffd_spear  <- corr.test(cor_tab_ffd, use = "pairwise", method = "spearman")
-ffd_pears  <- corr.test(cor_tab_ffd, use = "pairwise", method = "pearson")
 r_spear_ffd <- round(ffd_spear$r, 3)
 p_spear_ffd <- round(ffd_spear$p, 4)
 n_spear_ffd <- ffd_spear$n
+
+ffd_pears  <- corr.test(cor_tab_ffd, use = "pairwise", method = "pearson")
 r_pears_ffd <- round(ffd_pears$r, 3)
 p_pears_ffd <- round(ffd_pears$p, 4)
 n_pears_ffd <- ffd_pears$n
@@ -121,7 +122,15 @@ cor_viz_spear %>%
         legend.text          = element_text(size = rel(1.25)),
         legend.title         = element_text(size = rel(1.3)),
         axis.text            = element_text(size = rel(1.1)))
-p_spear
+
+
+cor_viz_spear %>%
+  #filter(!(is.na(r))) %>%
+  ggplot(aes(Var1, Var2))+
+  geom_point(aes(color = r), size = 6) +
+  geom_point(data = cor_viz_sub, aes(fill = r))+
+  geom_text(aes(label = n.y), fontface = "italic", size =3)
+
 
 # visualizing pearson
 cor_viz_pears <- cor_ffd_pears %>%
