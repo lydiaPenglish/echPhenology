@@ -92,7 +92,8 @@ cor_viz_spear <- cor_ffd_spear %>%
          n.y        = replace(n.y, Var1 == Var2, NA))
   
 cor_viz_sub <- cor_viz_spear %>%
-  filter(samp_thres == "yes")
+  filter(samp_thres == "yes") %>%
+  filter(!(is.na(r)))
 
 numb_cor <- data.frame(
   Var1 = c("2005", "2006", "2007", "2008", "2009", "2010", 
@@ -104,32 +105,44 @@ numb_cor <- data.frame(
   Num_cor = c(0, 4, 4, 3, 3, 3, 6, 0, 1, 1, 1, 0, "NA")
 )
 
-cor_viz_spear %>%
-  ggplot(aes(Var1, Var2))+
+ffd_plot <-
+  cor_viz_spear %>%
+  ggplot(aes(Var1, Var2)) +
   geom_point(aes(size = r, color = p_value), pch = 21) +
-  geom_point(data = cor_viz_sub, aes(size = r, fill = p_value), pch = 21)+
-  geom_abline(slope = 1, intercept = nlevels(cor_ffd_spear$Var1), lty = 2)+
-  geom_label(data = numb_cor, aes(Var1, Var2, label = Num_cor))+
-  geom_text(aes(label = n.y), fontface = "italic", size =3)+
+  geom_point(data = cor_viz_sub, aes(size = r, fill = p_value), pch = 21) +
+  geom_abline(slope = 1, intercept = nlevels(cor_ffd_spear$Var1), lty = 2) +
+  geom_label(data = numb_cor, aes(Var1, Var2, label = Num_cor)) +
+  geom_text(aes(label = n.y), fontface = "italic", size = 3) +
   scale_y_discrete("", limits = levels(cor_ffd_spear$Var1)) +
-  scale_color_grey(start = 0.7, end = 0.3)+
-  scale_fill_grey(start = 0.7, end = 0.3)+
-  guides(fill = FALSE, color = FALSE)+
-  scale_size(breaks = c(0, 0.1, 0.2, 0.4, 0.8), range = c(0,10))+
-  labs(x = NULL, y = NULL, size = "Spearman R")+
-  coord_fixed()+
-  theme(legend.background    = element_rect(color = "black"),
-        legend.text          = element_text(size = rel(1.25)),
-        legend.title         = element_text(size = rel(1.3)),
-        axis.text            = element_text(size = rel(1.1)))
+  scale_color_grey(start = 0.7, end = 0.3) +
+  scale_fill_grey(start = 0.7, end = 0.3) +
+  scale_size_area(breaks = c(0, 0.1, 0.2, 0.4, 0.8), max_size = 10) +
+  labs(x = NULL, y = NULL, size = "Spearman R") +
+  guides(fill = FALSE, color = FALSE) +
+  coord_fixed() +
+  ggtitle("FFD") +
+  theme(
+    legend.background = element_rect(color = "black"),
+    legend.text = element_text(size = rel(1.25)),
+    legend.title = element_text(size = rel(1.3)),
+    axis.text = element_text(size = rel(1.1)),
+    plot.title = element_text(size = rel(1.7), hjust = 0.5)
+  )
+ffd_plot
 
+scale_size(breaks = c(0, 0.1, 0.2, 0.4, 0.8), range = c(0,10))+
 
+# wanting to plot without p-values
 cor_viz_spear %>%
-  #filter(!(is.na(r))) %>%
   ggplot(aes(Var1, Var2))+
-  geom_point(aes(color = r), size = 6) +
-  geom_point(data = cor_viz_sub, aes(fill = r))+
-  geom_text(aes(label = n.y), fontface = "italic", size =3)
+  geom_point(aes(color = r), size = 7, pch = 21) +
+  geom_point(data = cor_viz_sub, aes(fill = r), size = 7, pch = 21)+
+  geom_text(aes(label = n.y), fontface = "italic", size =3) +
+  scale_color_gradient(na.value = NA, breaks = c(-0.1, 0.9)) +
+  scale_fill_gradient(na.value = NA, breaks = c(-0.1, 0.1, 0.3, 0.5, 0.7, 0.9)) +
+  guides(color = FALSE)+
+  labs(x = NULL,
+       y = NULL)
 
 
 # visualizing pearson
@@ -142,20 +155,22 @@ cor_viz_sub_p <- cor_viz_pears %>%
   filter(samp_thres == "yes")
 
 p_pears <- cor_viz_pears %>%
-  ggplot(aes(Var1, Var2))+
+  ggplot(aes(Var1, Var2)) +
   geom_point(aes(size = r, color = p_value), pch = 21) +
-  geom_point(data = cor_viz_sub_p, aes(size = r, fill = p_value), pch = 21)+
-  geom_abline(slope = 1, intercept = nlevels(cor_ffd_pears$Var1))+
+  geom_point(data = cor_viz_sub_p, aes(size = r, fill = p_value), pch = 21) +
+  geom_abline(slope = 1, intercept = nlevels(cor_ffd_pears$Var1)) +
   scale_y_discrete("", limits = levels(cor_ffd_pears$Var1)) +
-  scale_color_manual(values = c(my_cols[12], my_cols[10]))+
-  scale_fill_manual(values = c(my_cols[12], my_cols[10]))+
-  guides(fill = FALSE, color = FALSE)+
-  scale_size(breaks = c(0, 0.1, 0.2, 0.4, 0.8), range = c(0,10))+
-  labs(x = NULL, y = NULL, size = "Pearson R")+
-  theme(legend.background    = element_rect(color = "black"),
-        legend.text          = element_text(size = rel(1.25)),
-        legend.title         = element_text(size = rel(1.3)),
-        axis.text            = element_text(size = rel(1.1)))
+  scale_color_manual(values = c(my_cols[12], my_cols[10])) +
+  scale_fill_manual(values = c(my_cols[12], my_cols[10])) +
+  guides(fill = FALSE, color = FALSE) +
+  scale_size(breaks = c(0, 0.1, 0.2, 0.4, 0.8), range = c(0, 10)) +
+  labs(x = NULL, y = NULL, size = "Pearson R") +
+  theme(
+    legend.background = element_rect(color = "black"),
+    legend.text = element_text(size = rel(1.25)),
+    legend.title = element_text(size = rel(1.3)),
+    axis.text = element_text(size = rel(1.1))
+  )
 p_pears
 
 p_spear + p_pears
@@ -173,47 +188,85 @@ r_vals_dur <- round(dur_holm$r, 3)
 p_vals_dur <- round(dur_holm$p, 3) 
 n_vals_dur <- dur_holm$n
 
-lower_r_dur <- get_upper_tri(r_vals_dur)
-lower_n_dur <- get_upper_tri(n_vals_dur)
-lower_p_dur <- get_upper_tri(p_vals_dur)
-melt_r_dur <- reshape2::melt(lower_r_dur) %>%
-  rename("r" = "value")
-melt_n_dur <- reshape2::melt(lower_n_dur)%>%
-  rename("n" = "value")
-melt_p_dur <- reshape2::melt(lower_p_dur)%>%
-  rename("p" = "value")
+upper_r_dur <- get_upper_tri(r_vals_dur)
+upper_n_dur <- get_upper_tri(n_vals_dur)
+upper_p_dur <- get_upper_tri(p_vals_dur)
+lower_n_dur <- get_lower_tri(n_vals_dur)
 
+# make into a dataframe 
+melt_r_dur <- reshape2::melt(upper_r_dur) %>%
+  rename("r" = "value")
+melt_n_dur <- reshape2::melt(upper_n_dur)%>%
+  rename("n" = "value")
+melt_p_dur <- reshape2::melt(upper_p_dur)%>%
+  rename("p" = "value")
+melt_n_dur_low <- reshape2::melt(lower_n_dur)%>%
+  rename("n" = "value")
 # table with everything...
 cor_info_dur <- left_join(melt_n_dur, melt_r_dur, by = c("Var1", "Var2")) %>%
   left_join(., melt_p_dur, by = c("Var1", "Var2")) %>%
+  left_join(., melt_n_dur_low, by = c("Var1", "Var2")) %>%
   mutate_at(vars(Var1, Var2), as.character)
 
 # visualizing
 cor_viz_dur <- cor_info_dur %>%
   # creating extra columns for labeling variables
   mutate(r          = na_if(r, 1),
-         samp_thres = if_else(n < 10 , "no", "yes"),
-         p_value    = if_else(p <= 0.05, "sig", "ns"))
+         samp_thres = if_else(n.x < 10 , "no", "yes"),
+         p_value    = if_else(p <= 0.05, "sig", "ns"),
+         n.y        = replace(n.y, Var1 == Var2, NA))
+
 cor_sub_dur <- cor_viz_dur %>%
   filter(samp_thres == "yes")
 
-d1 <- cor_viz_dur %>%
+numb_dur_cor <- data.frame(
+  Var1 = c("2005", "2006", "2007", "2008", "2009", "2010", 
+           "2011", "2012", "2013", "2014", "2015", "2016", 
+           "2017"),
+  Var2 = c("2005", "2006", "2007", "2008", "2009", "2010", 
+           "2011", "2012", "2013", "2014", "2015", "2016", 
+           "2017"),
+  Num_cor = c(0, 0, 0, 0, 2, 0, 2, 0, 0, 2, 0, 0, "NA")
+)
+
+
+dur_plot <- 
+  cor_viz_dur %>%
   ggplot(aes(Var1, Var2))+
+  # geoms
   geom_point(aes(size = r, color = p_value), pch = 21) +
   geom_point(data = cor_sub_dur, aes(size = r, fill = p_value), pch = 21)+
   geom_abline(slope = 1, intercept = nlevels(cor_info_dur$Var1))+
+  geom_text(aes(label = n.y), fontface = "italic", size =3)+
+  geom_label(data = numb_dur_cor, aes(Var1, Var2, label = Num_cor))+
+  # scales
   scale_y_discrete("", limits = levels(cor_info_dur$Var1)) +
-  scale_color_manual(values = c(my_cols[12], my_cols[10]))+
-  scale_fill_manual(values = c(my_cols[12], my_cols[10]))+
-  scale_size(breaks = c(0, 0.1, 0.2, 0.4, 0.8), range = c(0,10))+
-  labs(x = NULL, y = NULL, size = "Spearman R")+
-  guides(fill = FALSE, color = FALSE)+
+  scale_color_grey(start = 0.7, end = 0.3)+
+  scale_fill_grey(start = 0.7, end = 0.3)+
+  scale_size_area(breaks = c(0, 0.1, 0.2, 0.4, 0.8), max_size = 10)+
+  labs(x = NULL, 
+       y = NULL, 
+       size = "Spearman R")+
+  guides(fill  = FALSE, 
+         color = FALSE,
+         size  = FALSE)+
+  coord_fixed()+
+  ggtitle("Duration")+
   theme(legend.background    = element_rect(color = "black"),
         legend.text          = element_text(size = rel(1.25)),
         legend.title         = element_text(size = rel(1.3)),
-        axis.text            = element_text(size = rel(1.1)))
-d1
+        axis.text.x          = element_text(size = rel(1.4)),
+        axis.text.y          = element_blank(),
+        plot.title           = element_text(size = rel(1.7), hjust = 0.5))
+dur_plot
+ffd_plot + dur_plot + plot_layout(guides = 'collect')
 
+
+legend.background = element_rect(color = "black"),
+legend.text = element_text(size = rel(1.25)),
+legend.title = element_text(size = rel(1.3)),
+axis.text = element_text(size = rel(1.1)),
+plot.title = element_text(size = rel(1.7), hjust = 0.5)
 
 # ---- older stuff ----
 
