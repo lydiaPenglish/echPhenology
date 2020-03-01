@@ -24,9 +24,14 @@ my_cols <-c("#E6AB02", "#D95F02", "#74C476","#238B45", "#00441B",
             "#A6761D","#666666")
 scales::show_col(my_cols) # To see colors 
 
+scale_color_grey(start = 0.7, end = 0.3)
+  scale_fill_grey(start = 0.7, end = 0.3)
+  
+grey.colors(2, start = 0.7, end = 0.3)  
+
 # ---- Figure 1. Census data summary, 4 graphs in one -----
 #      i. Age when plants first begin flowering
-#      ii. Number of plants flowering in each year  
+#      (ii. Number of plants flowering in each year) MOVED TO FIGURE 2  
 #      iii. Number of times plants flowered within the study period
 #      iv. Interval between flowering periods
 
@@ -39,7 +44,6 @@ firstYrs <- census_dat %>%
   mutate(ageAtFl = firstYr - yrPlanted)
 
 # average 
-
 firstYrs %>%
   group_by(yrPlanted) %>%
   summarize(avgAge = mean(ageAtFl),
@@ -50,7 +54,7 @@ firstYrs %>%
 
 p1 <- firstYrs %>%
   ggplot(aes(ageAtFl))+
-  geom_histogram(stat = "count", color = "black", size = 1, fill = my_cols[8]) +
+  geom_histogram(stat = "count", color = "black", size = 1, fill = "#B3B3B3") +
   labs(x = "Age at First Flower", y = "Number of Plants")+
   scale_x_continuous(breaks = c(3, 5, 7, 9, 11, 13, 15, 17, 19, 21)) +
   facet_wrap(~yrPlanted, ncol = 1)+
@@ -60,22 +64,6 @@ p1 <- firstYrs %>%
         axis.title       = element_text(size = rel(1.5)))
 p1
 
-# ii. Num of plants histogram
-burn_years <- c(2006, 2008, 2011, 2013, 2015, 2018)
-
-p2 <- census_dat %>%
-  mutate(fl_year = as.factor(fl_year),
-         burn = if_else(fl_year %in% burn_years, "burned", "not_burned")) %>%
-  ggplot(aes(fl_year))+
-  geom_histogram(aes(fill = burn), stat = "count", color = "black", size = 1)+
-  scale_fill_manual(values = c(my_cols[2], my_cols[12]))+
-  scale_x_discrete(breaks = c("1999", "2002", "2005", "2008", "2011", "2014",
-                              "2017"))+
-  guides(fill = FALSE)+
-  labs(y = NULL,
-       x = NULL)+
-  theme(axis.text = element_text(size = rel(1.25)))
-p2 
 # iii. Phen Count histogram
 
 census_phenCt <- census_dat %>%
@@ -92,11 +80,11 @@ census_phenCt %>%
 
 p3 <- census_phenCt %>%
   ggplot()+
-  geom_bar(aes(phenCt), size = 1, fill = my_cols[4], color = "black")+
-  labs(x = "Phenology count",
+  geom_bar(aes(phenCt), size = 1, fill = "#B3B3B3", color = "black")+
+  labs(x = "Seasons",
        y = NULL)+
   theme(axis.text    = element_text(size = rel(1.25)),
-        axis.title.x = element_text(size = rel(1.3)))
+        axis.title.x = element_text(size = rel(1.5)))
 p3
 #ggsave("phenCt_hist.png", plot = plot_pc) 
 
@@ -119,74 +107,108 @@ fl_intv_sum %>%
             min_tot  = min(avg_intv))  
 p4 <- fl_intv_sum %>%
   ggplot(aes(avg_intv))+
-  geom_histogram(binwidth = 1, fill = my_cols[4], color = "black", size = 1) +
+  geom_histogram(binwidth = 1, fill = "#B3B3B3", color = "black", size = 1) +
   #geom_vline(xintercept = 2.27, size = 1.5, lty = 2)+
-  labs(x = "Average flowering interval",
+  labs(x = "Flowering Interval",
        y = NULL)+
   scale_x_continuous(breaks = c(1:12))+
   theme(axis.text  = element_text(size = rel(1.25)),
-        axis.title = element_text(size = rel(1.3)))
+        axis.title = element_text(size = rel(1.5)))
 p4
 
 # **** putting all the plots together ****
 
-p1 + p2 / (p3 + p4)  + plot_annotation(tag_levels = 'A')
+p1 + p3 / p4  + plot_annotation(tag_levels = 'A')
 
 # ---- Figure 2. Phenology data summary, 2 graphs in one  ----
-      # i. Timing of flowering phenology by year
-      # ii. Duration of flowering phenology by year
-
-# i. Timing 
+      # i. Number of flowering plants (moved from FIG 1)
+      # ii. Timing of flowering phenology by year
+      # iii. Duration of flowering phenology by year
 
 burn_years <- c(2006, 2008, 2011, 2013, 2015)
-
 phen_all <- phen_19967 %>%
   mutate(burn = if_else(year %in% burn_years, "burned", "not_burned")) %>%
   group_by(year) %>%
   mutate(medianFFD = median(startNum))
 
-b1 <- phen_all %>%
-  #hmmm I'm not sure this is the best way to to this....
-  ggplot(aes(year, as.Date(startNum, origin = "2018-01-01")))+
-  geom_count(aes(color = burn), alpha = 0.5)+
-  geom_errorbar(aes(ymin = as.Date(medianFFD, origin = "2018-01-01"), 
-                    ymax = as.Date(medianFFD, origin = "2018-01-01")),
-                width = 0.5, size = 1.5)+
-  labs(y = "First flowering \nday",
-       x = NULL, 
-       size = "Count")+
-  guides(color = FALSE)+
-  scale_size_area()+
-  scale_color_manual(values = c(my_cols[2], my_cols[12]))+
-  #scale_size_area(max_size = 8)+
-  theme(axis.text.x = element_blank(),
-        axis.title  = element_text(size = rel(1.3)),
-        legend.background = element_rect(color = "black"))
-b1
+
+# ii. Num of plants histogram 
+p1 <- phen_all %>%
+  mutate(burn = if_else(year %in% burn_years, "burned", "not_burned")) %>%
+  ggplot(aes(year))+
+  geom_histogram(aes(fill = burn), stat = "count", color = "black", size = 1)+
+  scale_fill_manual(values = c(my_cols[2], "#B3B3B3"))+
+  scale_x_discrete(breaks = c("2005", "2007", "2009", "2011", "2013", "2015", 
+                              "2017"))+
+  guides(fill = FALSE)+
+  labs(y = "Number of Flowering Plants",
+       x = NULL)+
+  theme(axis.text = element_text(size = rel(1.25)),
+        axis.title = element_text(size = rel(1.5)))
+p1 
+
+# i. Timing 
+
+p2 <- phen_all %>%
+  # hmmm I'm not sure this is the best way to to this....
+  ggplot(aes(year, as.Date(startNum, origin = "2018-01-01"))) +
+  geom_count(aes(fill = burn), color = "black", pch = 21) +
+  geom_errorbar(aes(
+    ymin = as.Date(medianFFD, origin = "2018-01-01"),
+    ymax = as.Date(medianFFD, origin = "2018-01-01")
+  ),
+  width = 0.5, size = 1.5
+  ) +
+  labs(
+    y = "First flowering Day",
+    x = NULL,
+    size = "Count"
+  ) +
+  guides(fill = FALSE) +
+  scale_size_area(breaks = c(20, 40, 60, 80), max_size = 8) +
+  scale_fill_manual(values = c(my_cols[2], "#B3B3B3")) +
+  scale_y_date(date_breaks = "2 weeks", date_labels = "%b-%d") +
+  theme(
+    axis.text.x = element_blank(),
+    axis.text.y = element_text(size = rel(1.25)),
+    axis.title = element_text(size = rel(1.5)),
+    legend.background = element_rect(color = "black")
+  )
+p2
 
 # ii. Duration
 
-b2 <- phen_all %>%
+p3 <- phen_all %>%
   group_by(year) %>%
-  mutate(medianDur = median(dur))%>%
-  ggplot(aes(year, dur))+
-  geom_count(aes(color = burn), alpha = 0.5)+
-  geom_errorbar(aes(ymin = medianDur, 
-                    ymax = medianDur),
-                width = 0.5, size = 1.5)+
-  labs(x = NULL, 
-       y = "Flowering duration \n(days)",
-       size = "Count")+
-  guides(color = FALSE)+
-  scale_size_area()+
-  scale_color_manual(values = c(my_cols[2], my_cols[12]))+
-  theme(axis.text.x = element_text(size = rel(1.25)),
-        axis.title.y = element_text(size = rel(1.3)),
-        legend.background = element_rect(color = "black"))
-b2
+  mutate(medianDur = median(dur)) %>%
+  ggplot(aes(year, dur)) +
+  geom_count(aes(fill = burn), color = "black", pch = 21) +
+  geom_errorbar(aes(
+    ymin = medianDur,
+    ymax = medianDur
+  ),
+  width = 0.5, size = 1.5
+  ) +
+  labs(
+    x = NULL,
+    y = "Flowering duration",
+    size = "Count"
+  ) +
+  guides(fill = FALSE) +
+  scale_size_area(breaks = c(20, 40, 60, 80), max_size = 8) +
+  scale_fill_manual(values = c(my_cols[2], "#B3B3B3")) +
+  scale_x_discrete(breaks = c("2005", "2007", "2009", "2011", "2013", "2015", 
+                              "2017"))+
+  theme(
+    axis.text.x = element_text(size = rel(1.25)),
+    axis.title.y = element_text(size = rel(1.5)),
+    legend.background = element_rect(color = "black")
+  )
+p3
 # **** together
 
-b1/b2 + plot_annotation(tag_levels = 'A')
+p1 + p2/p3 + plot_annotation(tag_levels = 'A') + plot_layout(widths = c(1.5, 2))
+
 
 # ---- Figure 3. Correlation analysis ----
 

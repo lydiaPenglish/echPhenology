@@ -82,6 +82,12 @@ phen_19967 %>%
   filter(phenCt > 10) %>%
   distinct(cgPlaId)
 
+# 5. Range of number of flowering plants per year
+
+phen_19967 %>%
+  group_by(year) %>%
+  summarize(n = n())
+
 # ---- Avg age of a plant when it first flowered  and flowering interval ----
 
 # get earliest FFD for each cgPlaId
@@ -186,39 +192,11 @@ ggsave("fl_interval_phenCt.png", plot = fl_intv_phenCt, path = "./figs")
 #          intv = year - lag(year, default = year[1]))
 
 
-# ---- graphs of flowering distribution and count, colored by burn vs non-burn yrs ----
+# ---- Distribution of and relationship between head count and duration ----
 burn_years <- c(2006, 2008, 2011, 2013, 2015)
 
 phen_all <- phen_19967 %>%
   mutate(burn = if_else(year %in% burn_years, "burned", "not_burned"))
-
-p1 <- phen_all %>%
-  ggplot(aes(year, as.Date(startNum, origin = "2018-01-01")))+
-  geom_count(aes(color = burn), alpha = 0.5)+
-  labs(y = "First flowering day",
-       x = NULL, 
-       size = "Count")+
-  guides(color = FALSE)+
-  scale_size(range = c(1, 8))+
-  scale_color_manual(values = c(my_cols[2], my_cols[8]))+
-  #scale_size_area(max_size = 8)+
-  theme(axis.text.x = element_blank(),
-        axis.title  = element_text(size = rel(1.1)),
-        legend.background = element_rect(color = "black"))
-
-p2 <- phen_19967 %>%
-  mutate(burn = if_else(year %in% burn_years, "burned", "not_burned")) %>%
-  ggplot(aes(year))+
-  geom_histogram(aes(fill = burn), stat = "count", color = "black")+
-  guides(fill = FALSE)+
-  scale_fill_manual(values = c(my_cols[2], my_cols[8]))+
-  labs(y = "# flowering plants",
-       x = "Year Sampled")+
-  theme(axis.text.x = element_text(angle = 90, size = rel(1.05)),
-        axis.title  = element_text(size = rel(1.1)))
-
-patch1 <- p1+p2+plot_layout(ncol = 1, heights = c(2, 1))
-ggsave("flowering_distribution.png", plot = patch1)
 
 # # -- Distribution of head count and duration in each year -- # # 
 phen_19967 %>%
@@ -272,6 +250,7 @@ p2 <- phen_19967 %>%
         legend.background = element_rect(color = "black"),
         legend.position = "bottom")
 hdCt_dur <- p1 + p2
+hdCt_dur
 ggsave("HeadCt_and_duration.png", plot = hdCt_dur)
 
 # distribution of head count in each year (in 1996 vs 1997 garden)
@@ -287,10 +266,17 @@ hdCt_96_97 <- phen_19967 %>%
 hdCt_96_97
 ggsave("hdCt_96_vs_97.png", plot = hdCt_96_97)
 
-# relationship between head Ct and duration 
+# relationship between head Ct and duration - this isn't good. Fix this later....
+
+# distribution of duration
+phen_19967 %>%
+  ggplot(aes(dur))+
+  geom_histogram()+
+  facet_wrap(~year)
 
 m1 <- lmerTest::lmer(dur ~ headCt + year + expNm + (1|cgPlaId), data = phen_19967)
 # ^ mixed model where year is a fixed effect...says that dur and headct are related
+ggResidpanel::resid_panel(m1)
 summary(m1)
 anova(m1)
 
@@ -346,6 +332,7 @@ avg_hd_ct <- phen_19967 %>%
         panel.grid.minor = element_blank(),
         legend.position = "bottom",
         legend.background = element_rect(color = "black"))
+avg_hd_ct
 ggsave("avgHdCt_row_pos.png", plot = avg_hd_ct)
 
 # ---- Average duration per flowering head; how much does that vary per year ----
@@ -392,7 +379,6 @@ ggsave("duration_heads.png", plot = p2)
 
 # ---- Do burn years have a longer flowering duration than non-burn years? ----
 
-
 burn_years <- c(2006, 2008, 2011, 2013, 2015)
 
 phen_all <- phen_19967 %>%
@@ -402,13 +388,27 @@ phen_all <- phen_19967 %>%
 m1 <- lmerTest::lmer(dur ~ burn + (1|cgPlaId), data = phen_all)
 summary(m1)
 anova(m1)
-ggResidpanel::resid_panel(m1)
+ggResidpanel::resid_panel(m1) # this doesn't fit super well 
+
+m2 <- lmer(dur ~ burn*year + (1|cgPlaId), data = phen_all)
+summary(m2)
+anova(m2)
+
+hist(phen_all$dur); mean(phen_all$dur) ; sd(phen_all$dur)
+
+library(MASS)
+
+g1 <- glm.nb(dur ~ burn, data = phen_all)
+summary(g1)
+
+g2 <- glmer.nb(dur ~ burn + (1|cgPlaId), data = phen_all)
+summary(g2)
+ggResidpanel::resid_panel(g2)
 
 # wilcoxon rank sum test
 
 w1 <- wilcox.test(dur ~ burn, phen_all)
 w1
-
 
 # burn years have more flowering plants? 
 totals <- phen_19967 %>%
@@ -422,10 +422,6 @@ anova(m4)
 ggResidpanel::resid_panel(m4)
 confint(m4)
 
-totals %>%
-  ggplot(aes(burn, total_phen))+
-  geom_boxplot()
-
 # ---- Is the FFD different between burn and non-burn years? Yes ---- 
 
 burn_years <- c(2006, 2008, 2011, 2013, 2015)
@@ -438,6 +434,7 @@ summary(l1)
 l2 <- lmer(startNum ~ burn + (1|cgPlaId), data = phen_all)
 summary(l2)
 anova(l2)
+ggResidpanel::resid_panel(l2)
 
 # summary stat 
 phen_summary <- phen_all %>%
@@ -453,25 +450,62 @@ summary(l2)
 # ---- Do plants that flower earlier have more heads? FINISH later ----
 # first try with one year 
 phen_2006 <- phen_19967 %>% filter(year == "2006")
+hist(phen_2006$headCt); mean(phen_2006$headCt) ; sd(phen_2006$headCt) # pretty close, poisson should be ok
 
-g1 <- glm(headCt ~ startNum, family = poisson(), data = phen_2006)
+g1 <- glm.nb(headCt ~ startNum, data = phen_2006)
 summary(g1)
 ggResidpanel::resid_panel(g1)
+par(mfrow = c(2,2))
+plot(g1)
+par(mfrow = c(1,1)) # i think negative binomial looks better?
 
-hist(phen_2006$headCt)
+g2 <- glm(headCt ~ startNum, data = phen_2006)
+summary(g2)
+ggResidpanel::resid_panel(g2)
 
 phen_19967 %>%
   ggplot(aes(startNum, headCt))+
-  geom_count(alpha = 0.25) +
+  geom_point() +
+  geom_smooth(method = "lm")+
   facet_wrap(~year)
 
-# try as a mixed model
+# try as a mixed model - there seems to be evidence for this. 
 
-g2 <- lme4::glmer(headCt ~ startNum + (1|cgPlaId), family = poisson,
+g2 <- glmer.nb(headCt ~ startNum + (1|cgPlaId), 
                   data = phen_19967)
 summary(g2)
+plot(g2)
 
-# ---- How much does "peak" flowering day vary by year ----
+g3 <- glmer(headCt ~ startNum + (1|cgPlaId), family = poisson(link = "log"), data = phen_19967)
+summary(g3)
+ggResidpanel::resid_panel(g3)
+
+manyHds <- phen_19967 %>% filter(headCt > 6) %>%
+  distinct(cgPlaId) %>% unlist()
+
+lookies <- phen_19967 %>%
+  filter(cgPlaId %in% manyHds) 
+
+# are floweirng time and duration correlated?
+
+phen_19967 %>%
+  ggplot(aes(startNum, dur))+
+  geom_point()+
+  geom_smooth(method = "lm")+
+  facet_wrap(~year)
+
+f1 <- lmer(dur ~ startNum*year + (1|cgPlaId), data = phen_19967)
+summary(f1)
+anova(f1)
+
+# ---- How much does median and "peak" flowering day vary by year ----
+
+# median FFD
+
+phen_19967 %>%
+  group_by(year) %>%
+  summarize(medStartNum = median (startNum)) %>%
+  mutate(medFFD = as_date(medStartNum))
 
 # this is it's own section because it was a pain in the butt to do....
 

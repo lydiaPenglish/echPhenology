@@ -120,17 +120,18 @@ ffd_plot <-
   labs(x = NULL, y = NULL, size = "Spearman R") +
   guides(fill = FALSE, color = FALSE) +
   coord_fixed() +
-  ggtitle("FFD") +
+  ggtitle("A) FFD") +
   theme(
     legend.background = element_rect(color = "black"),
     legend.text = element_text(size = rel(1.25)),
     legend.title = element_text(size = rel(1.3)),
-    axis.text = element_text(size = rel(1.1)),
-    plot.title = element_text(size = rel(1.7), hjust = 0.5)
+    axis.text.x = element_text(size = rel(1.2)),
+    axis.text.y = element_text(size = rel(1.2)),
+    plot.title = element_text(size = rel(1.7))
   )
 ffd_plot
 
-scale_size(breaks = c(0, 0.1, 0.2, 0.4, 0.8), range = c(0,10))+
+
 
 # wanting to plot without p-values
 cor_viz_spear %>%
@@ -251,16 +252,18 @@ dur_plot <-
          color = FALSE,
          size  = FALSE)+
   coord_fixed()+
-  ggtitle("Duration")+
+  ggtitle("B) Duration")+
   theme(legend.background    = element_rect(color = "black"),
         legend.text          = element_text(size = rel(1.25)),
         legend.title         = element_text(size = rel(1.3)),
-        axis.text.x          = element_text(size = rel(1.4)),
+        axis.text.x          = element_text(size = rel(1.25)),
         axis.text.y          = element_blank(),
-        plot.title           = element_text(size = rel(1.7), hjust = 0.5))
+        plot.title           = element_text(size = rel(1.7)))
 dur_plot
-ffd_plot + dur_plot + plot_layout(guides = 'collect')
 
+cor_plot <- ffd_plot + dur_plot + plot_layout(guides = 'collect')
+
+cor_plot
 
 legend.background = element_rect(color = "black"),
 legend.text = element_text(size = rel(1.25)),
