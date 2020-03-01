@@ -1,7 +1,8 @@
 library(reprex)
 
 reprex({
-  library(tidyverse)
+  library(ggplot2)
+  library(dplyr)
   
   # I've set up this dataframe
   ex <- data.frame(x1 = c(rep("2010", 3), rep("2011", 3), rep("2012", 3)),
@@ -18,4 +19,11 @@ reprex({
   ex %>%
       ggplot(aes(x1, x2))+
       geom_point(aes(color = r), size = 6)+
-      geom_text(aes(label = n))})
+      geom_text(aes(label = n))
+  
+  ex %>%
+    ggplot(aes(as.character(x1), as.character(x2)))+
+    geom_point(aes(color = as.character(r)), size = 6, na.rm = T) +
+    geom_text(aes(label = n))
+  
+  })
