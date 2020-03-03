@@ -382,24 +382,43 @@ ggsave("duration_heads.png", plot = p2)
 
 burn_years <- c(2006, 2008, 2011, 2013, 2015)
 
+phen_sub <- phen_19967 %>%
+  # summarize data by year
+  group_by(year) %>%
+  summarize(avg_dur = mean(dur)) %>%
+  mutate(burn = if_else(year %in% burn_years, "burned", "not_burned"))
+  
+# regular model looking at burn/not burned
+
+d1 <- lm(avg_dur ~ burn, phen_sub)
+ggResidpanel::resid_panel(d1)
+summary(d1)
+anova(d1) # NS difference
+
+# whole dataframe
 phen_all <- phen_19967 %>%
   mutate(burn = if_else(year %in% burn_years, "burned", "not_burned"))
 
-# mixed model, just looking at burn/not burn
-m1 <- lmerTest::lmer(dur ~ burn + (1|cgPlaId), data = phen_all)
+# mixed model - count data 
+
+# poisson distribution
+m1 <- glmer(dur ~ burn + year + (1|cgPlaId), data = phen_all, family = poisson)
 summary(m1)
 anova(m1)
+# checking for overdispersion 
+1 - pchisq(deviance(m1), df.residual(m1)) # 0.999, seems ok
 AIC(m1) # 13054
 ggResidpanel::resid_panel(m1)         # this doesn't fit super well... 
-
 hist(phen_all$dur); mean(phen_all$dur) ; var(phen_all$dur)
+
+# try difference covariance structures 
 
 library(MASS)
 
 g1 <- glm.nb(dur ~ burn, data = phen_all)
 summary(g1)
 
-g2 <- glmer.nb(dur ~ burn + (1|cgPlaId), data = phen_all)
+g2 <- glmer.nb(dur ~ burn + year + (1|cgPlaId), data = phen_all)
 summary(g2) # same p-value so it's ok? But how do I interpret this coefficient value?
 ggResidpanel::resid_panel(g2)          # is this better?
 anova(g2)
@@ -425,6 +444,17 @@ confint(m4)
 # ---- Is the FFD different between burn and non-burn years? Yes ---- 
 
 burn_years <- c(2006, 2008, 2011, 2013, 2015)
+
+phen_sub <- phen_19967 %>%
+  group_by(year) %>%
+  summarize(avg_ffd = mean(startNum),
+            med_ffd = median(startNum)) %>%
+  mutate(burn = if_else(year %in% burn_years, "burned", "not_burned"))
+
+f1 <- lm(med_ffd ~ burn, phen_sub)
+summary(f1)
+anova(f1)
+ggResidpanel::resid_panel(f1)
 
 phen_all <- phen_19967 %>%
   mutate(burn = if_else(year %in% burn_years, "burned", "not_burned"))
