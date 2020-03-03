@@ -88,7 +88,7 @@ phen_19967 %>%
   group_by(year) %>%
   summarize(n = n())
 
-# ---- Avg age of a plant when it first flowered  and flowering interval ----
+# ---- Avg age of a plant when it first flowered  and flowering interval (could test!?) ----
 
 # get earliest FFD for each cgPlaId
 minYrsToFl <- phen_19967 %>%
@@ -191,6 +191,7 @@ ggsave("fl_interval_phenCt.png", plot = fl_intv_phenCt, path = "./figs")
 #   mutate(year = as.numeric(year), 
 #          intv = year - lag(year, default = year[1]))
 
+# testing flowering interval by bootstrap?? Idk but an option...
 
 # ---- Distribution of and relationship between head count and duration ----
 burn_years <- c(2006, 2008, 2011, 2013, 2015)
@@ -388,13 +389,10 @@ phen_all <- phen_19967 %>%
 m1 <- lmerTest::lmer(dur ~ burn + (1|cgPlaId), data = phen_all)
 summary(m1)
 anova(m1)
-ggResidpanel::resid_panel(m1) # this doesn't fit super well 
+AIC(m1) # 13054
+ggResidpanel::resid_panel(m1)         # this doesn't fit super well... 
 
-m2 <- lmer(dur ~ burn*year + (1|cgPlaId), data = phen_all)
-summary(m2)
-anova(m2)
-
-hist(phen_all$dur); mean(phen_all$dur) ; sd(phen_all$dur)
+hist(phen_all$dur); mean(phen_all$dur) ; var(phen_all$dur)
 
 library(MASS)
 
@@ -402,8 +400,10 @@ g1 <- glm.nb(dur ~ burn, data = phen_all)
 summary(g1)
 
 g2 <- glmer.nb(dur ~ burn + (1|cgPlaId), data = phen_all)
-summary(g2)
-ggResidpanel::resid_panel(g2)
+summary(g2) # same p-value so it's ok? But how do I interpret this coefficient value?
+ggResidpanel::resid_panel(g2)          # is this better?
+anova(g2)
+AIC(g2)  # 12857 <- this fits better....
 
 # wilcoxon rank sum test
 
@@ -434,7 +434,7 @@ summary(l1)
 l2 <- lmer(startNum ~ burn + (1|cgPlaId), data = phen_all)
 summary(l2)
 anova(l2)
-ggResidpanel::resid_panel(l2)
+ggResidpanel::resid_panel(l2)        # is this ok? 
 
 # summary stat 
 phen_summary <- phen_all %>%
@@ -459,12 +459,12 @@ par(mfrow = c(2,2))
 plot(g1)
 par(mfrow = c(1,1)) # i think negative binomial looks better?
 
-g2 <- glm(headCt ~ startNum, data = phen_2006)
+g2 <- lm(headCt ~ startNum, data = phen_2006)
 summary(g2)
 ggResidpanel::resid_panel(g2)
 
 phen_19967 %>%
-  ggplot(aes(startNum, headCt))+
+  ggplot(aes(startNum, dur))+
   geom_point() +
   geom_smooth(method = "lm")+
   facet_wrap(~year)
@@ -474,11 +474,15 @@ phen_19967 %>%
 g2 <- glmer.nb(headCt ~ startNum + (1|cgPlaId), 
                   data = phen_19967)
 summary(g2)
-plot(g2)
+ggResidpanel::resid_panel(g2)
+AIC(g2)     # 7523.95
+
+hist(phen_19967$headCt); mean(phen_19967$headCt); sd(phen_19967$headCt)
 
 g3 <- glmer(headCt ~ startNum + (1|cgPlaId), family = poisson(link = "log"), data = phen_19967)
 summary(g3)
 ggResidpanel::resid_panel(g3)
+AIC(g3)     # 7522.58 - pretty much the same
 
 manyHds <- phen_19967 %>% filter(headCt > 6) %>%
   distinct(cgPlaId) %>% unlist()
