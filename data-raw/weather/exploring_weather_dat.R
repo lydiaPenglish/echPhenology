@@ -5,9 +5,10 @@ data("phen_dataset")
 theme_set(theme_bw())
 burn_years <- c(2006, 2008, 2011, 2013, 2015)
 
-weather <- read_csv("data-raw/weather_dat.csv") %>%
+weather <- read_csv("data-raw/weather/weather_dat.csv") %>%
   dplyr::rename_all(tolower) %>%
-  select(-c(station, name, prcp))
+  mutate(date = as.Date(date, "%m/%d/%Y")) %>%
+  select(-c(station, name))
 
 phen_weather <- 
   left_join(phen_19967, weather, by = c("startDtEarly" = "date")) %>%
@@ -56,7 +57,7 @@ FS_df <- phen_weather %>%
   group_by(year) %>%
   mutate(ord = row_number(startDtEarly)) %>%
   ungroup() %>%
-  dplyr::select(year, cgPlaId, startDtEarly, endDtLate, yrPlanted, peak_date, stDayMonth:ord, tmax, burn)
+  dplyr::select(year, cgPlaId, startDtEarly, endDtLate, yrPlanted, peak_date, stDayMonth:ord, tmax, prcp, burn)
 
 # Tried to graph everything and just facet by year but the doesn't work with dates (WHYYYYYYYYY)
 # Then I tried to just have month labels and add in peak flowering dates, but you can't add a line that's
@@ -88,10 +89,10 @@ p2005_temp <-
   FS_df %>%
   filter(year == 2005) %>%
   ggplot()+
-  geom_line(aes(x = startDtEarly, y = tmax), color = "red", size = 2)+
+  geom_line(aes(x = startDtEarly, y = prcp), color = "red", size = 2)+
   geom_vline(xintercept = as.Date("2005-07-11"))+
   scale_x_date(limits = c(as.Date("2005-06-19"), as.Date("2005-09-01")))+
-  labs(x = NULL, y = "Maximum daily temperature")+
+  labs(x = NULL, y = "Precip")+
   theme(axis.text.x = element_blank())
 
 p2005_temp / p2005
@@ -112,7 +113,7 @@ p2008_temp <-
   FS_df %>%
   filter(year == 2008) %>%
   ggplot()+
-  geom_line(aes(x = startDtEarly, y = tmax), color = "red", size = 2)+
+  geom_line(aes(x = startDtEarly, y = prcp), color = "red", size = 2)+
   geom_vline(xintercept = as.Date("2008-07-26"))+
   scale_x_date(limits = c(as.Date("2008-06-19"), as.Date("2008-09-01")))+
   labs(x = NULL, y = "Maximum daily temperature")+
@@ -151,3 +152,71 @@ library(patchwork)
 all_FS <- wrap_plots(plot_list[[1]], plot_list[[2]], plot_list[[3]], plot_list[[4]], plot_list[[5]], plot_list[[6]], plot_list[[7]],
                      plot_list[[8]], plot_list[[9]], plot_list[[10]], plot_list[[11]], plot_list[[12]], plot_list[[13]])
 all_FS
+
+# trying to look at spring temperatures
+
+weather_avg <- 
+  weather %>%
+  mutate(month = lubridate::month(date, label = TRUE),
+         year  = lubridate::year(date),
+         tavg  = (tmax + tmin)/2) %>%
+  group_by(month, year) %>%
+  summarize(avg_avg  = mean(tavg, na.rm = TRUE),
+            max_high = max(tmax, na.rm = TRUE),
+            min_low  = min(tmin, na.rm = TRUE)) %>%
+  filter(month %in% c("Mar", "Apr", "May", "Jun")) %>%
+  mutate(burn = if_else(year %in% burn_years, "burned", "nb")) %>%
+  # will add in later
+  filter(year != 2019 & year != 2018)
+
+weather_avg %>%
+  ggplot(aes(year, min_low))+
+  geom_point(aes(color = burn))+
+  facet_wrap(~month)+
+  guides(color = FALSE)
+
+
+# Morris extension weather data...growing degree day 
+
+readxl::read_xlsx("data-raw/weather/morris_extension/2005.xlsx", sheet = 1, skip = 2)
+
+read_weather_xlsx = function(f, into) {
+  readxl::read_xlsx(f, sheet = 1, skip = 2) %>%
+    dplyr::mutate(file=f) %>%
+    tidyr::separate(file, into) 
+}
+
+read_weather_dir = function(path, pattern, into) {
+  files = list.files(path = path,
+                     pattern = pattern,
+                     recursive = TRUE,
+                     full.names = TRUE)
+  plyr::ldply(files, read_weather_xlsx, into = into)
+}
+
+gdds <- 
+  read_weather_dir(path = "data-raw/weather/morris_extension",
+                 pattern = "*xlsx",
+                 into = c("weather", "year", "extension")) %>%
+  filter(`50` != "--" & `40` != "--") %>%
+  mutate(GDD_50 = as.numeric(`50`),
+         GDD_40 = as.numeric(`40`),
+         date   = as.Date(Date)) %>%
+  select(date, GDD_50, GDD_40)
+
+gdd_plant_dat <- gdds %>%
+  mutate(month = lubridate::month(date, label = TRUE),
+         year  = as.factor(lubridate::year(date))) %>%
+  filter(month %in% c("May", "Jun", "Jul", "Aug")) %>%
+  left_join(phen_19967, by = c("date" = "startDtEarly", "year"))
+
+tt <-
+  gdd_plant_dat %>%
+  select(date, GDD_50, GDD_40, month, year, medianDate) %>%
+  filter(date == medianDate) %>%
+  distinct() %>%
+  mutate(burn  = if_else(year %in% burn_years, "burn", "not_burned"))
+
+t_mod <- lm(GDD_50 ~ burn, tt)  
+anova(t_mod)
+summary(t_mod)
