@@ -1,18 +1,197 @@
-### Looking at relationship between maximum daily temperature and FFD 
+### Looking at relationship temperature/GDD and flowering time 
 
 library(tidyverse)
 data("phen_dataset")
 theme_set(theme_bw())
 burn_years <- c(2006, 2008, 2011, 2013, 2015)
 
+# Data from NOAA - max temp, min temp, precip
 weather <- read_csv("data-raw/weather/weather_dat.csv") %>%
   dplyr::rename_all(tolower) %>%
   mutate(date = as.Date(date, "%m/%d/%Y")) %>%
   select(-c(station, name))
 
+# trying to look at spring temperatures
+
+weather_avg <- 
+  weather %>%
+  mutate(month = lubridate::month(date, label = TRUE),
+         year  = lubridate::year(date),
+         tavg  = (tmax + tmin)/2,
+         year = as.factor(year)) %>%
+  group_by(month, year) %>%
+  summarize(tavg = mean(tavg, na.rm = TRUE),
+            psum = sum(prcp, na.rm = TRUE)) %>%
+  filter(month %in% c("Mar", "Apr", "May", "Jun")) %>%
+  mutate(burn = if_else(year %in% burn_years, "burned", "nb")) 
+
+# join with phenology data - min FFD and median FFD
 phen_weather <- 
-  left_join(phen_19967, weather, by = c("startDtEarly" = "date")) %>%
-  mutate(burn = if_else(year %in% burn_years, "burned", "nb"))
+  phen_19967 %>%
+  group_by(year) %>%
+  summarize(mean_FFD = mean(startNum),
+            min_FFD  = min(startNum)) %>%
+  left_join(weather_avg, ., by = "year") %>%
+  # will add in later
+  filter(year != 2019 & year != 2018) %>%
+  arrange(year)
+
+pw_wider <- phen_weather %>%
+  pivot_wider(names_from = month, values_from = c(tavg, psum))
+
+# quick modeling...
+
+# i. Looking at when plant's first start flowering
+
+# March temps
+mar1 <- lm(mean_FFD ~ tavg_Mar, pw_wider)
+summary(mar1)  # March temp seems to matter & higher March temps = earlier flowering
+
+pw_wider %>%
+  ggplot(aes(tavg_Mar, mean_FFD))+
+  geom_point(aes(color = burn))
+
+mar2 <- lm(tavg_Mar ~ burn, pw_wider) 
+summary(mar2)
+
+# April temps
+apr1 <- lm(mean_FFD ~ tavg_Apr, data = pw_wider)
+summary(apr1)   # April matters a little less
+
+pw_wider %>%
+  ggplot(aes(tavg_Apr, mean_FFD))+
+  geom_point(aes(color = burn))
+
+apr2 <- lm(tavg_Apr ~ burn, data = pw_wider)
+summary(apr2)   # no sig difference in apr mean temps
+
+# May temps 
+may1 <- lm(mean_FFD ~ tavg_May, data = pw_wider)
+summary(may1)
+
+pw_wider %>%
+  ggplot(aes(tavg_May, mean_FFD))+
+  geom_point(aes(color = burn))
+
+may2 <- lm(tavg_May ~ burn, data = pw_wider)
+summary(may2) # no sig difference in May temps between burned and unburned years
+
+# look at precip
+
+mar_p <- lm(mean_FFD ~ psum_Jun, pw_wider)
+summary(mar_p)
+
+pw_wider %>%
+  ggplot(aes(tot_prcp_May, mean_FFD))+
+  geom_point()+
+  geom_smooth(method = "lm", se = FALSE)
+
+# Should I put them all together...?
+
+all_try <- lm(mean_FFD ~ avg_avg_May, pw_wider)
+summary(all_try)
+
+# mixed model 
+
+long_weather <- left_join(phen_19967, pw_wider, by = "year") %>%
+  mutate(year_n = as.numeric(year))
+
+mm1 <- lmerTest::lmer(startNum ~ psum_Mar + psum_Apr + psum_May + 
+                        tavg_Mar + tavg_Apr + 
+                        tavg_Jun +
+              headCt +
+              (1|cgPlaId), long_weather)
+summary(mm1)
+anova(mm1)
+performance::r2(mm1)
+lmerTest::rand(mm1)
+performance::check_model(mm1)
+performance::check_collinearity(mm1)
+
+mm2 <- lmerTest::lmer(startNum ~ headCt + psum_Mar + psum_Jun + year +
+                        (1|cgPlaId), long_weather)
+summary(mm2)
+anova(mm2)
+
+library(nlme)
+n1 <- lme(startNum ~ psum_Mar + psum_Apr + psum_May + 
+            tavg_Mar + tavg_Apr + 
+            tavg_Jun +
+            headCt, random = ~1|cgPlaId, 
+          data = long_weather)
+n2 <- lme(startNum ~ psum_Mar + psum_Apr + psum_May + 
+                  tavg_Mar + tavg_Apr + 
+                  tavg_Jun +
+                  headCt, random = ~1|cgPlaId, 
+                  data = long_weather, correlation = corAR1())
+anova(n2, n3)
+performance::compare_performance(n1, n2)
+ggResidpanel::resid_panel(n2)
+
+# Morris extension weather data...growing degree day 
+
+readxl::read_xlsx("data-raw/weather/morris_extension/2005.xlsx", sheet = 1, skip = 2)
+
+read_weather_xlsx = function(f, into) {
+  readxl::read_xlsx(f, sheet = 1, skip = 2) %>%
+    dplyr::mutate(file=f) %>%
+    tidyr::separate(file, into) 
+}
+
+read_weather_dir = function(path, pattern, into) {
+  files = list.files(path = path,
+                     pattern = pattern,
+                     recursive = TRUE,
+                     full.names = TRUE)
+  plyr::ldply(files, read_weather_xlsx, into = into)
+}
+
+gdds <- 
+  read_weather_dir(path = "data-raw/weather/morris_extension",
+                   pattern = "*xlsx",
+                   into = c("weather", "year", "extension")) %>%
+  filter(`50` != "--" & `40` != "--") %>%
+  mutate(GDD_50 = as.numeric(`50`),
+         GDD_40 = as.numeric(`40`),
+         date   = as.Date(Date)) %>%
+  select(date, GDD_50, GDD_40) %>%
+  mutate(month = lubridate::month(date, label = TRUE),
+         year  = as.factor(lubridate::year(date))) %>%
+  filter(month %in% c("Apr", "May", "Jun")) 
+
+gd_nums <- gdds %>%
+  filter(GDD_50 != 0) %>%
+  group_by(year) %>%
+  mutate(min_gdd = min(GDD_50),
+         min_date = min(date)) %>%
+  select(year, min_gdd, min_date) %>%
+  distinct() %>%
+  mutate(min_num = lubridate::yday(min_date))
+
+phen_gdd <- 
+  phen_19967 %>%
+  group_by(year) %>%
+  summarize(mean_FFD = mean(startNum),
+            min_FFD  = min(startNum)) %>%
+  left_join(gd_nums, by = "year")
+
+
+phen_gdd %>%
+  ggplot(aes(min_num, mean_FFD))+
+  geom_point()
+
+
+tt <-
+  gdd_plant_dat %>%
+  select(date, GDD_50, GDD_40, month, year, medianDate) %>%
+  filter(date == medianDate) %>%
+  distinct() %>%
+  mutate(burn  = if_else(year %in% burn_years, "burn", "not_burned"))
+
+t_mod <- lm(GDD_50 ~ burn, tt)  
+anova(t_mod)
+summary(t_mod)
+
 
 
 # need to make flowering schedule plot again.. (I think?)
@@ -153,21 +332,7 @@ all_FS <- wrap_plots(plot_list[[1]], plot_list[[2]], plot_list[[3]], plot_list[[
                      plot_list[[8]], plot_list[[9]], plot_list[[10]], plot_list[[11]], plot_list[[12]], plot_list[[13]])
 all_FS
 
-# trying to look at spring temperatures
 
-weather_avg <- 
-  weather %>%
-  mutate(month = lubridate::month(date, label = TRUE),
-         year  = lubridate::year(date),
-         tavg  = (tmax + tmin)/2) %>%
-  group_by(month, year) %>%
-  summarize(avg_avg  = mean(tavg, na.rm = TRUE),
-            max_high = max(tmax, na.rm = TRUE),
-            min_low  = min(tmin, na.rm = TRUE)) %>%
-  filter(month %in% c("Mar", "Apr", "May", "Jun")) %>%
-  mutate(burn = if_else(year %in% burn_years, "burned", "nb")) %>%
-  # will add in later
-  filter(year != 2019 & year != 2018)
 
 weather_avg %>%
   ggplot(aes(year, min_low))+
@@ -176,47 +341,5 @@ weather_avg %>%
   guides(color = FALSE)
 
 
-# Morris extension weather data...growing degree day 
-
-readxl::read_xlsx("data-raw/weather/morris_extension/2005.xlsx", sheet = 1, skip = 2)
-
-read_weather_xlsx = function(f, into) {
-  readxl::read_xlsx(f, sheet = 1, skip = 2) %>%
-    dplyr::mutate(file=f) %>%
-    tidyr::separate(file, into) 
-}
-
-read_weather_dir = function(path, pattern, into) {
-  files = list.files(path = path,
-                     pattern = pattern,
-                     recursive = TRUE,
-                     full.names = TRUE)
-  plyr::ldply(files, read_weather_xlsx, into = into)
-}
-
-gdds <- 
-  read_weather_dir(path = "data-raw/weather/morris_extension",
-                 pattern = "*xlsx",
-                 into = c("weather", "year", "extension")) %>%
-  filter(`50` != "--" & `40` != "--") %>%
-  mutate(GDD_50 = as.numeric(`50`),
-         GDD_40 = as.numeric(`40`),
-         date   = as.Date(Date)) %>%
-  select(date, GDD_50, GDD_40)
-
-gdd_plant_dat <- gdds %>%
-  mutate(month = lubridate::month(date, label = TRUE),
-         year  = as.factor(lubridate::year(date))) %>%
-  filter(month %in% c("May", "Jun", "Jul", "Aug")) %>%
-  left_join(phen_19967, by = c("date" = "startDtEarly", "year"))
-
-tt <-
-  gdd_plant_dat %>%
-  select(date, GDD_50, GDD_40, month, year, medianDate) %>%
-  filter(date == medianDate) %>%
-  distinct() %>%
-  mutate(burn  = if_else(year %in% burn_years, "burn", "not_burned"))
-
-t_mod <- lm(GDD_50 ~ burn, tt)  
-anova(t_mod)
-summary(t_mod)
+g1 <- lm(startNum ~ year, data = phen_19967)
+summary(g1)

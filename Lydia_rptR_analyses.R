@@ -13,27 +13,41 @@ my_cols <-c("#E6AB02", "#D95F02", "#74C476","#238B45", "#00441B",
             "#A6761D","#666666")
 scales::show_col(my_cols) # To see colors 
 
-# # using rptR to analyze data # #
-
 # 1. FFD
 
-# checking out what factors should be included as fixed effects (aka what should we be adjusting for)
-l1  <- lmer(startNum ~ 1 + (1|cgPlaId), data = phen_19967) 
-l1a <- lmer(startNum ~ year + (1|cgPlaId), data = phen_19967)
-l1c <- lmer(startNum ~ yrPlanted + (1|cgPlaId), data = phen_19967)
-l1b <- lmer(startNum ~ year + yrPlanted + (1|cgPlaId), data = phen_19967)
-anova(l1,  l1a) # Model fits WAY better with year
-anova(l1a, l1b) # surprisingly model fits much better with yrPlanted
-anova(l1, l1c)
+# # examining fix factors to adjust our repeatability estimates # # 
 
-# adding in row and position
-l1c <- lmer(startNum ~ year + yrPlanted + row + (1|cgPlaId), data = phen_19967)
-l1d <- lmer(startNum ~ year + yrPlanted + pos + (1|cgPlaId), data = phen_19967)
-l1e <- lmer(startNum ~ year + yrPlanted + row + pos + (1|cgPlaId), data = phen_19967)
-anova(l1c, l1b) # row doesn't matter
-anova(l1d, l1b) # position does matter
-anova(l1e, l1b) # row and position matter
-# same results via backwards elimination (vs addition)
+# base model 
+l1  <- lmer(startNum ~ 1 + (1|cgPlaId), data = phen_19967) 
+
+# add in year
+l1a <- lmer(startNum ~ year + (1|cgPlaId), data = phen_19967)
+anova(l1a, l1)    # keep!
+
+# add in cohort
+l1b <- lmer(startNum ~ year + yrPlanted + (1|cgPlaId), data = phen_19967)
+anova(l1a, l1b)   # keep!
+
+# add in headCt 
+l1c <- lmer(startNum ~ year + yrPlanted + headCt + (1|cgPlaId), data = phen_19967)
+anova(l1b, l1c)   # keep
+
+# in locs
+l1d <- lmer(startNum ~ year + yrPlanted + headCt + row + (1|cgPlaId), data = phen_19967)
+l1e <- lmer(startNum ~ year + yrPlanted + headCt + pos + (1|cgPlaId), data = phen_19967)
+l1f <- lmer(startNum ~ year + yrPlanted + headCt + row + pos + (1|cgPlaId), data = phen_19967)
+
+anova(l1d, l1c) # row does't matter
+anova(l1e, l1c) # position matters
+anova(l1c, l1f)
+
+# use l1f as the final model (keep row even though doesn't sig effect model fit)
+summary(l1f)
+
+# check model
+lmerTest::rand(l1f) # random effect matters
+performance::r2(l1f)
+performance::check_model(l1f)    # looks fine, a little bit of a weird tail
 
 # are the FFD data normal? Pretty much....
 phen_19967 %>% ggplot()+
@@ -41,13 +55,13 @@ phen_19967 %>% ggplot()+
   facet_wrap(~year)
 
 # repeatbility model with everything adjusted
-r1 <- rpt(startNum ~ year + yrPlanted + row + pos + (1|cgPlaId), grname = "cgPlaId",
+r1 <- rpt(startNum ~ year + yrPlanted + headCt + row + pos + (1|cgPlaId), grname = "cgPlaId",
           data = phen_19967, datatype = "Gaussian",
           nboot = 1000, npermut = 1000, parallel = TRUE)
 summary(r1) 
 print(r1)
 # repeatability model without adjusted for row/pos
-r1b <- rpt(startNum ~ year + yrPlanted + (1|cgPlaId), grname = "cgPlaId",
+r1b <- rpt(startNum ~ year + yrPlanted + headCt + (1|cgPlaId), grname = "cgPlaId",
            data = phen_19967, datatype = "Gaussian",
            nboot = 1000, npermut = 1000)
 summary(r1b)
@@ -62,20 +76,30 @@ summary(r1c)
 # 2. Duration
 
 # checking out what factors should be included as fixed effects (aka what should we be adjusting for)
+# base model
 l2  <- lmer(dur ~ 1 + (1|cgPlaId), data = phen_19967) 
+
+# adding year
 l2a <- lmer(dur ~ year + (1|cgPlaId), data = phen_19967)
+anova(l2, l2a)      # keep!
+
+# adding cohort
 l2b <- lmer(dur ~ year + yrPlanted + (1|cgPlaId), data = phen_19967)
-anova(l2,  l2a) # Model fits better with year
-anova(l2a, l2b) # Model also fits better with yrPlanted
+anova(l2a, l2b)     # keep!
+
+# adding headCt
+l2c <- lmer(dur ~ year + yrPlanted + headCt + (1|cgPlaId), data = phen_19967)
+anova(l2b, l2c)
 
 # adding in row and position
-l2c <- lmer(dur ~ year + yrPlanted + row + (1|cgPlaId), data = phen_19967)
-l2d <- lmer(dur ~ year + yrPlanted + pos + (1|cgPlaId), data = phen_19967)
-l2e <- lmer(dur ~ year + yrPlanted + row + pos + (1|cgPlaId), data = phen_19967)
-anova(l2c, l2b) # row doesn't matter
-anova(l2d, l2b) # position also doesn't matter
-anova(l2e, l2b)
-# same results via backwards elimination (vs addition)
+l2d <- lmer(dur ~ year + yrPlanted + headCt + row + (1|cgPlaId), data = phen_19967)
+l2e <- lmer(dur ~ year + yrPlanted + headCt + pos + (1|cgPlaId), data = phen_19967)
+l2f <- lmer(dur ~ year + yrPlanted + headCt + row + pos + (1|cgPlaId), data = phen_19967)
+
+anova(l2c, l2d)  # ns
+anova(l2c, l2e)  # ns
+anova(l2c, l2f)
+
 
 # are the duration data normal? Meh, yeah looks ok...
 phen_19967 %>% ggplot()+
@@ -83,34 +107,14 @@ phen_19967 %>% ggplot()+
   facet_wrap(~year)
 
 # repeatbility model with everything adjusted
-r2 <- rpt(dur ~ year + yrPlanted + row + pos + (1|cgPlaId), grname = "cgPlaId",
+r2 <- rpt(dur ~ year + yrPlanted + headCt + row + pos + (1|cgPlaId), grname = "cgPlaId",
           data = phen_19967, datatype = "Gaussian",
           nboot = 1000, npermut = 1000)
 summary(r2) 
+
 # repeatability model without adjusted for row/pos
-r2b <- rpt(dur~ year + yrPlanted + (1|cgPlaId), grname = "cgPlaId",
+r2b <- rpt(dur~ year + yrPlanted + headCt + (1|cgPlaId), grname = "cgPlaId",
            data = phen_19967, datatype = "Gaussian",
            nboot = 1000, npermut = 1000)
 summary(r2b)
 
-# 3. Is repeatability stronger as plants flower more?
-
-# try with 5 or more times - 233 plants, less repeatible
-phen_5 <- phen_19967 %>%
-  filter(phenCt > 4) 
-
-
-# repeatbility model with everything adjusted
-r3 <- rpt(startNum ~ year + yrPlanted + row + pos + (1|cgPlaId), grname = "cgPlaId",
-          data = phen_5, datatype = "Gaussian",
-          nboot = 1000, npermut = 0, parallel = TRUE)
-
-# try with 5 or less times - 234 plants, more repeatable (R = 0.28)
-
-phen_4 <- phen_19967 %>%
-  filter(phenCt < 5) 
-
-r4 <- rpt(startNum ~ year + yrPlanted + row + pos + (1|cgPlaId), grname = "cgPlaId",
-          data = phen_4, datatype = "Gaussian",
-          nboot = 1000, npermut = 0, parallel = TRUE)
-summary(r4)
