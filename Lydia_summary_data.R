@@ -1,7 +1,8 @@
 # # Script for getting summary data and making summary figures about Echinacea phenology # #
 
 # loading libraries and dataframes
-library(tidyverse)
+library(dplyr)
+library(ggplot2)
 library(lme4)
 library(lmerTest)
 library(lubridate)
@@ -9,16 +10,16 @@ library(patchwork)
 data("phen_dataset")
 data("phen96_dataset")
 data("phen97_dataset")
-census_dat <- read_csv("data-raw/cg1CoreData.csv") %>%   # getting census data 
+census_dat <- readr::read_csv("data-raw/cg1CoreData.csv") %>%   # getting census data 
   # filter for columns with just flowering info
   select(cgPlaId, yrPlanted, starts_with("fl")) %>%
   # filter for plants in 1996 and 1997 cohort
   filter(yrPlanted == 1996 | yrPlanted == 1997) %>%
   # go from wide to long
-  pivot_longer(cols = starts_with("fl"), names_to = "fl_year") %>%
+  tidyr::pivot_longer(cols = starts_with("fl"), names_to = "fl_year") %>%
   filter(value != 0)  %>%
   # get rid of the "fl" in front of all year values, make numeric
-  mutate(fl_year = as.numeric(unlist(str_extract_all(fl_year, "(?<=fl)\\d{4}"))))
+  mutate(fl_year = as.numeric(unlist(stringr::str_extract_all(fl_year, "(?<=fl)\\d{4}"))))
 
 # graphing parameters
 theme_set(theme_bw())
@@ -31,7 +32,7 @@ display.brewer.pal(n = 7, name = 'PuBuGn')
 brewer.pal(n = 7, name = "PuBuGn")
 
 # ---- Plot of the common garden experiment ----
-rowpos <- read_csv("data-raw/cg1CoreData.csv") %>%
+rowpos <- readr::read_csv("data-raw/cg1CoreData.csv") %>%
   select(cgPlaId:yrPlanted) %>%
   filter(yrPlanted == 1996 | yrPlanted == 1997) %>%
   mutate(yrPlanted = as.factor(yrPlanted))
@@ -104,20 +105,20 @@ minYrsToFl %>%                                        # majority of plants flowe
 
 # cross referencing CG1 core dataset
 
-wide_info <- read_csv("data-raw/cg1CoreData.csv") %>%
+wide_info <- readr::read_csv("data-raw/cg1CoreData.csv") %>%
   select(cgPlaId, yrPlanted, starts_with("fl")) %>%
   filter(yrPlanted == 1996 | yrPlanted == 1997) %>%
   select(-yrPlanted) %>%
-  pivot_longer(cols = starts_with("fl"), names_to = "year") %>%
-  pivot_wider(names_from = cgPlaId, values_from = value) %>%
-  mutate(year = str_extract_all(year, "(?<=fl)\\d{4}"))
+  tidyr::pivot_longer(cols = starts_with("fl"), names_to = "year") %>%
+  tidyr::pivot_wider(names_from = cgPlaId, values_from = value) %>%
+  mutate(year = stringr::str_extract_all(year, "(?<=fl)\\d{4}"))
 
-long_info <- read_csv("data-raw/cg1CoreData.csv") %>%
+long_info <- readr::read_csv("data-raw/cg1CoreData.csv") %>%
   select(cgPlaId, yrPlanted, starts_with("fl")) %>%
   filter(yrPlanted == 1996 | yrPlanted == 1997) %>%
-  pivot_longer(cols = starts_with("fl"), names_to = "year") %>%
+  tidyr::pivot_longer(cols = starts_with("fl"), names_to = "year") %>%
   filter(value != 0)  %>%
-  mutate(year = as.numeric(unlist(str_extract_all(year, "(?<=fl)\\d{4}"))))
+  mutate(year = as.numeric(unlist(stringr::str_extract_all(year, "(?<=fl)\\d{4}"))))
   
 firstYrs <- long_info %>%
   group_by(cgPlaId) %>%

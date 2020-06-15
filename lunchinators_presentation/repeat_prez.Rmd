@@ -1,0 +1,348 @@
+---
+title: "Repeatability of Flowering Phenology"
+subtitle: "Using the R package {rptR}"  
+author: 
+  - "Lydia English"
+date: "June 19 2020"
+output:
+  xaringan::moon_reader:
+    lib_dir: libs
+    css: xaringan-themer.css
+    nature:
+      highlightStyle: github
+      highlightLines: true
+      countIncrementalSlides: false
+---
+
+```{r setup, include=FALSE}
+options(htmltools.dir.version = FALSE)
+library(dplyr)
+library(ggplot2)
+```
+
+```{r xaringan-themer, include=FALSE, warning=FALSE}
+library(xaringanthemer)
+style_duo_accent(
+  primary_color = "#667056",
+  secondary_color = "#5F1343",
+  inverse_header_color = "#FFFFFF",
+  header_font_google = google_font("Noto Sans JP"),
+  text_font_google = google_font("Open Sans"),
+  code_font_google = google_font("Fira Code"),
+   extra_css = list(
+    ".large" = list("font-size" = "130%"),
+    ".pull-left-narrow" = list("float" = "left",
+                               "width" = "35%")
+  ))
+
+```
+
+
+
+.large[I'm not an expert]
+
+--
+
+.large[Would love your feedback]
+
+
+--
+
+
+![](http://echinaceaproject.org/wp-content/ata-images/WebsiteLogo.png)
+
+
+---
+
+.large[_Echinacea angustifolia_]
+
+
+.pull-left[
+
+- Perennial prairie plant
+
+- Doesn't flower before 3 years old. Doesn't flower every year. 
+
+- Composite flower; flowering proceeds from bottom to top of head.
+
+- Self-incompatible
+
+- Might have more than one flowering head in a given year. 
+
+- No specialist pollinators
+]
+.pull-right[
+![](echinacea_head.png)
+![](http://echinaceaproject.org/wp-content/uploads/2013/07/009-500x375.jpg)
+]
+
+---
+### Previous research on flowering phenology
+
+.large[Earlier flowering plants have a higher seed set than later flowering plants] (Ison and Wagenius, 2014. _JoE_)
+
+--
+
+Higher seed set via pollinator mediated mechanisms (Ison et al. 2018 _Oikos_).
+
+--
+
+i. Pollinators visit earlier flower plants more often than later flowering plants.
+
+--
+
+ii. Pollinator community less diverse later in the season (dominated by single spp of _Augochlorella_)
+
+--
+
+iii. Late season pollinators carried less conspecific pollen relative to early season pollinators visiting _Echinacea_ plants.  
+
+--
+
+### Are the same plants flowering early each year? 
+
+---
+
+### Common Garden Experiment
+.pull-left-narrow[
+**1996**: 646 plants from 8 remnants
+
+**1997**: 591 plants from 15 remnants 
+
+
+Census data (plants alive vs. dead, flowering vs. non-flowering) since 1996/1997
+
+
+Phenology data (start date, end date for each flowering head) since 2005
+
+
+Plot is burned every 2-3 years
+
+]
+
+
+```{r, echo = FALSE, message = FALSE, fig.align='right', warning = FALSE}
+rowpos <- readr::read_csv("dat/cg1CoreData.csv") %>%
+  select(cgPlaId:yrPlanted) %>%
+  filter(yrPlanted == 1996 | yrPlanted == 1997) %>%
+  mutate(yrPlanted = as.factor(yrPlanted))
+
+rowpos %>%
+  ggplot(aes(row, pos))+
+  geom_point(aes(color = yrPlanted), size = 3)+
+  geom_hline(yintercept = 959.5, lty = 2, size = 1)+
+  coord_fixed()+
+  guides(color = guide_legend(reverse = TRUE))+
+  labs(x = NULL, y = NULL, color = "Planting Year")+
+  scale_color_manual(values = c("#667056", "#C669D5"))+
+  theme_bw()+
+  theme(legend.title = element_text(size = 18),
+        axis.text = element_text(size = 16),
+        legend.text = element_text(size = 15))
+  
+```
+
+
+---
+
+### Census data (1996 - 2018)
+
+```{r, echo = FALSE, out.width=475}
+
+knitr::include_graphics("first_flowering_age.png")
+
+```
+---
+
+### Phenology data (2005 - 2017)
+
+```{r, echo = FALSE, out.width=475}
+
+knitr::include_graphics("hist_phenCt.png")
+
+```
+
+---
+### Phenology data (2005 - 2017)
+
+```{r, echo = FALSE, out.width=475}
+
+knitr::include_graphics("phenology_summary.png")
+
+```
+---
+### Phenology data
+
+Repeatability of:
+- First flowering date (FFD) `startNum`
+- Flowering duration
+- Head Coutn
+
+---
+
+### Repeatability 
+
+Intra-class Correlation Coefficient (ICC)
+
+Fraction of total variation that can be attributed to varation among groups
+
+R = Vg/(Vg + Vr)
+
+Vr = within group variance
+Vg = among group variance
+
+---
+
+### r package {rptR}
+
+- uses `glmer` notation
+- random effects = grouping variable 
+- fixed effects = "adjustments" ("remove variance explained by fixed effects")
+    - "consistency repeatabilities"
+
+---
+
+### Adjustments
+
+- Year
+
+--
+
+- Cohort
+
+
+--
+
+- Location (x & y in Common Garden)
+
+---
+```{r, eval = FALSE}
+r1 <- rpt(startNum ~ year + yrPlanted  + row + pos + (1|cgPlaId), 
+            grname = "cgPlaId",
+            data = phen_19967, datatype = "Gaussian",
+            nboot = 1000, npermut = 1000, parallel = TRUE)`
+```
+---
+
+```{r, eval = FALSE}
+
+summary(r1)
+
+Repeatability estimation using the lmm method
+
+Call = rpt(formula = startNum ~ year + yrPlanted + row + pos + (1 | cgPlaId), grname = "cgPlaId", data = phen_19967, datatype = "Gaussian", nboot = 1000, npermut = 1000, parallel = TRUE)
+
+Data: 2194 observations
+
+cgPlaId (467 groups)
+
+Repeatability estimation overview: 
+      R     SE   2.5%  97.5% P_permut  LRT_P
+  0.222 0.0233  0.181  0.272    0.001      0  #<<
+
+Bootstrapping and Permutation test: 
+            N    Mean  Median   2.5%  97.5%
+boot     1000 0.22489 0.22410  0.181 0.2718
+permut   1000 0.00695 0.00194  0.000 0.0304
+
+Likelihood ratio test: 
+logLik full model = -6232.085
+logLik red. model = -6306.833
+D  = 149, df = 1, P = 1.12e-34
+```
+
+---
+```{r, eval = FALSE}
+Linear mixed model fit by REML ['lmerMod']
+Formula: startNum ~ year + yrPlanted + row + pos + (1 | cgPlaId)
+   Data: phen_19967
+
+REML criterion at convergence: 12478.7
+
+Scaled residuals: 
+    Min      1Q  Median      3Q     Max 
+-3.2786 -0.5763 -0.0709  0.5085  6.3005 
+
+Random effects:
+ Groups   Name        Variance Std.Dev.
+ cgPlaId  (Intercept)  4.148   2.037         #<<
+ Residual             14.530   3.812         #<<
+Number of obs: 2194, groups:  cgPlaId, 467
+
+Fixed effects:
+               Estimate Std. Error t value
+(Intercept)   134.94960   20.05537   6.729
+year2006       -0.44271    0.40651  -1.089
+year2007       -8.91522    0.40554 -21.984
+year2008       13.91698    0.41923  33.197
+year2009       -0.44667    0.41861  -1.067
+year2010       -3.60034    0.45065  -7.989
+year2011        9.28213    0.40041  23.182
+year2012       -6.13856    0.57899 -10.602
+year2013       13.88673    0.44559  31.165
+year2014        5.01313    0.47739  10.501
+year2015       11.75741    0.42747  27.505
+year2016       -1.79291    1.02389  -1.751
+year2017        4.03123    1.47128   2.740
+yrPlanted1997   0.56204    0.49709   1.131
+row            -0.02130    0.01970  -1.081
+pos             0.05439    0.02106   2.583
+```
+---
+```{r}
+
+4.148/(4.148 + 14.530)
+
+```
+---
+```{r, eval = FALSE}
+
+cgPlaId (467 groups)
+
+Variance estimation overview: 
+    Var     SE   2.5%  97.5% P_permut  LRT_P
+   4.15  0.502    3.3   5.17    0.667      0      #<<
+
+Bootstrapping and Permutation test: 
+            N   Mean Median   2.5%  97.5%
+boot     1000   4.22   4.21    3.3   5.17
+permut   1000  27.24  18.35    0.0  65.64
+
+------------------------------------------
+Residual
+
+Variance estimation overview: 
+    Var     SE   2.5%  97.5% P_permut  LRT_P
+   14.5  0.504   13.5   15.5       NA     NA       #<<
+
+Bootstrapping and Permutation test: 
+            N   Mean Median   2.5%  97.5%
+boot     1000   14.5   14.5   13.5   15.5
+permut   1000     NA     NA     NA     NA
+
+-------------------------------------------------
+Fixed
+
+Variance estimation overview: 
+    Var     SE   2.5%  97.5% P_permut  LRT_P
+   62.7   1.37   60.2   65.6       NA     NA        #<<
+
+Bootstrapping and Permutation test: 
+            N   Mean Median   2.5%  97.5%
+boot     1000   62.9   62.9   60.2   65.6
+permut   1000     NA     NA     NA     NA
+
+```
+---
+
+
+---
+
+### Bibliography
+
+Ison et al 2018. 
+Ison & Wagenius 2014
+Stoffel et al. 2017 Methods
+
+
+

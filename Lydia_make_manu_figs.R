@@ -2,20 +2,21 @@
 # If figures aren't located in this script then the header will tell you what document to find them in
 # All figures are saved in echPhenology/figs 
 
-library(tidyverse)
+library(ggplot2)
+library(dplyr)
 library(patchwork)
 library(RColorBrewer)
 data("phen_dataset")                                     # phenology data
-census_dat <- read_csv("data-raw/cg1CoreData.csv") %>%   # getting census data 
+census_dat <- readr::read_csv("data-raw/cg1CoreData.csv") %>%   # getting census data 
   # filter for columns with just flowering info
   select(cgPlaId, yrPlanted, starts_with("fl")) %>%
   # filter for plants in 1996 and 1997 cohort
   filter(yrPlanted == 1996 | yrPlanted == 1997) %>%
   # go from wide to long
-  pivot_longer(cols = starts_with("fl"), names_to = "fl_year") %>%
+  tidyr::pivot_longer(cols = starts_with("fl"), names_to = "fl_year") %>%
   filter(value != 0)  %>%
   # get rid of the "fl" in front of all year values, make numeric
-  mutate(fl_year = as.numeric(unlist(str_extract_all(fl_year, "(?<=fl)\\d{4}"))))
+  mutate(fl_year = as.numeric(unlist(stringr::str_extract_all(fl_year, "(?<=fl)\\d{4}"))))
 
 # General graphics parameters
 theme_set(theme_bw())
@@ -23,11 +24,6 @@ my_cols <-c("#E6AB02", "#D95F02", "#74C476","#238B45", "#00441B",
             "#6BAED6", "#08519C", "#D0D1E6", "#7570B3", "#F781BF",
             "#A6761D","#666666")
 scales::show_col(my_cols) # To see colors 
-
-scale_color_grey(start = 0.7, end = 0.3)
-  scale_fill_grey(start = 0.7, end = 0.3)
-  
-grey.colors(2, start = 0.7, end = 0.3)  
 
 # ---- Figure 1. Census data summary, 4 graphs in one -----
 #      i. Age when plants first begin flowering
@@ -54,10 +50,10 @@ firstYrs %>%
 
 p1 <- firstYrs %>%
   ggplot(aes(ageAtFl))+
-  geom_histogram(stat = "count", color = "black", size = 1, fill = "#B3B3B3") +
-  labs(x = "Age at First Flower", y = "Number of Plants")+
+  geom_histogram(stat = "count", color = "black", size = 1, fill = "#C669D5") +
+  labs(x = "Age at First Flower", y = NULL)+
   scale_x_continuous(breaks = c(3, 5, 7, 9, 11, 13, 15, 17, 19, 21)) +
-  facet_wrap(~yrPlanted, ncol = 1)+
+  facet_grid(rows = vars(yrPlanted))+
   theme(axis.text        = element_text(size = rel(1.25)),
         strip.background = element_rect(color = "black", fill = "white"),
         strip.text       = element_text(size = rel(1.4)),
@@ -67,9 +63,11 @@ p1
 # iii. Phen Count histogram
 
 census_phenCt <- census_dat %>%
-  group_by(cgPlaId)%>%
-  summarize(phenCt = sum(value)) %>%
-  filter(phenCt != 1)
+  filter(fl_year != 2018) %>%
+  group_by(yrPlanted, cgPlaId)%>%
+  summarize(phenCt = sum(value)) 
+#%>%
+ # filter(phenCt != 1)
 # Woah cgPlaID 372 has flowered 16 times from 1996 to 2018
 
 census_phenCt %>%
@@ -81,10 +79,14 @@ census_phenCt %>%
 p3 <- census_phenCt %>%
   ggplot()+
   geom_bar(aes(phenCt), size = 1, fill = "#B3B3B3", color = "black")+
-  labs(x = "Seasons",
-       y = NULL)+
-  theme(axis.text    = element_text(size = rel(1.25)),
-        axis.title.x = element_text(size = rel(1.5)))
+  facet_grid(rows = vars(yrPlanted))+
+  scale_x_continuous(breaks = c(1, 5, 10, 15))+
+  labs(x = "Flowering count",
+       y = "Number of flowering plants")+
+  theme(axis.text    = element_text(size = 13),
+        strip.background = element_rect(color = "black", fill = "white"),
+        strip.text       = element_text(size = 16),
+        axis.title = element_text(size = 14))
 p3
 #ggsave("phenCt_hist.png", plot = plot_pc) 
 
@@ -141,10 +143,10 @@ p1 <- phen_all %>%
   scale_x_discrete(breaks = c("2005", "2007", "2009", "2011", "2013", "2015", 
                               "2017"))+
   guides(fill = FALSE)+
-  labs(y = "Number of Flowering Plants",
+  labs(y = "Number of Flowering\n Plants",
        x = NULL)+
-  theme(axis.text = element_text(size = rel(1.25)),
-        axis.title = element_text(size = rel(1.5)))
+  theme(axis.text = element_text(size = 14),
+        axis.title = element_text(size = 15))
 p1 
 
 # i. Timing 
@@ -170,11 +172,13 @@ p2 <- phen_all %>%
   scale_y_date(date_breaks = "2 weeks", date_labels = "%b-%d") +
   theme(
     axis.text.x = element_blank(),
-    axis.text.y = element_text(size = rel(1.25)),
-    axis.title = element_text(size = rel(1.5)),
+    axis.text.y = element_text(size = 14),
+    axis.title = element_text(size = 15),
     legend.background = element_rect(color = "black")
   )
 p2
+
+p2/p1
 
 # ii. Duration
 
@@ -209,6 +213,18 @@ p3
 
 p1 + p2/p3 + plot_annotation(tag_levels = 'A') + plot_layout(widths = c(1.5, 2))
 
+# number of times plants have flowered
+
+phen_all %>%
+  ungroup() %>%
+  select(cgPlaId, phenCt, yrPlanted) %>%
+  distinct() %>%
+  ggplot(aes(phenCt))+
+  geom_histogram(stat = "count", color = "black", size = 1, fill = "#C669D5")+
+  labs(x = "Phenology Count", y = NULL)+
+  scale_x_continuous(breaks = c(2, 4, 6, 8, 10))+
+  theme(axis.text = element_text(size = 14),
+        axis.title = element_text(size = 15))
 
 # ---- Figure 3. Correlation analysis ----
 
