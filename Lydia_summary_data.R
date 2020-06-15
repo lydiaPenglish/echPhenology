@@ -7,6 +7,7 @@ library(lme4)
 library(lmerTest)
 library(lubridate)
 library(patchwork)
+library(viridis)
 data("phen_dataset")
 data("phen96_dataset")
 data("phen97_dataset")
@@ -650,7 +651,7 @@ ggsave("flowering_schedules.png", plot = all_FS)
 # ---- Trying to visualize which plants are flowering each year and when they start ----
 
 # all row/pos
-rowpos <- read_csv("data-raw/cg1CoreData.csv") %>%
+rowpos <- readr::read_csv("data-raw/cg1CoreData.csv") %>%
   select(cgPlaId:yrPlanted) %>%
   filter(yrPlanted == 1996 | yrPlanted == 1997) %>%
   mutate(yrPlanted = as.factor(yrPlanted))
@@ -660,7 +661,7 @@ p05 <- phen_19967 %>%
   ggplot()+
   geom_point(data = rowpos, aes(row, pos), size = 0.25)+
   geom_point(aes(row, pos, color = startNum), size = 1.5)+
-  scale_color_viridis(limits = c(170,210), option="magma")+
+  #scale_color_viridis(limits = c(170,210), option="magma")+
   coord_fixed()+
   guides(color = FALSE)+
   theme_bw()
@@ -668,11 +669,13 @@ p06 <- phen_19967 %>%
   filter(year == 2006) %>%
   ggplot()+
   geom_point(data = rowpos, aes(row, pos), size = 0.25)+
-  geom_point(aes(row, pos, color = startNum), size = 1.5)+
-  scale_color_viridis(limits = c(170,210), option="magma")+
+  geom_point(aes(row, pos, color = startNum), size = 2.5)+
+  geom_hline(yintercept = 959.5, lty = 2, size = 0.5)+
+  scale_color_viridis()+
+  labs(x = NULL, y = NULL, color = "Day of Year")+
   coord_fixed()+
-  guides(color = FALSE)+
   theme_bw()
+p06
 p07 <- phen_19967 %>%
   filter(year == 2007) %>%
   ggplot()+
@@ -682,6 +685,7 @@ p07 <- phen_19967 %>%
   coord_fixed()+
   theme_bw()
 library(patchwork)
+p06
 composite <- (p05+p06+p07 + plot_layout(guides = 'collect'))
 ggsave("ex_startNum050607.png", plot = composite)
 

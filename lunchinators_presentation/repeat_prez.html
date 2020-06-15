@@ -52,12 +52,14 @@ class: center, middle, inverse, title-slide
 
 - Self-incompatible
 
+- No specialist pollinators
+
 - Might have more than one flowering head in a given year. 
 
-- No specialist pollinators
 ]
+
 .pull-right[
-![](echinacea_head.png)
+![](echincea_head.png)
 ![](http://echinaceaproject.org/wp-content/uploads/2013/07/009-500x375.jpg)
 ]
 
@@ -120,54 +122,59 @@ Plot is burned every 2-3 years
 
 &lt;img src="hist_phenCt.png" width="475" /&gt;
 
+#### Removed plants that flowered 0 or 1 time during study period. 
+
 ---
 ### Phenology data (2005 - 2017)
 
-&lt;img src="phenology_summary.png" width="475" /&gt;
+&lt;img src="phenology_summary.png" width="650" /&gt;
 ---
 ### Phenology data
 
-Repeatability of:
-- First flowering date (FFD) `startNum`
+.large[
+- First flowering date (FFD) 
+      - `startNum`
+
 - Flowering duration
-- Head Coutn
+
+- Head Count]
 
 ---
 
 ### Repeatability 
 
-Intra-class Correlation Coefficient (ICC)
+_Intra-class Correlation Coefficient (ICC)_
 
-Fraction of total variation that can be attributed to varation among groups
+Fraction of total variation that can be attributed to varation among groups. 
 
-R = Vg/(Vg + Vr)
+`$$R = \frac{V_g}{V_g + V_r}$$`
+V&lt;sub&gt;g&lt;/sub&gt; = among group variance
 
-Vr = within group variance
-Vg = among group variance
+V&lt;sub&gt;r&lt;/sub&gt; = within group (residual) variance
+
+--
+
+**Repeatability can be low due to high within group variation *or* low between group variation.**
 
 ---
 
 ### r package {rptR}
 
-- uses `glmer` notation
-- random effects = grouping variable 
-- fixed effects = "adjustments" ("remove variance explained by fixed effects")
+- Uses `glmer` notation
+- Random effects = grouping variable 
+- Fixed effects = "adjustments" ("remove variance explained by fixed effects")
     - "consistency repeatabilities"
 
 ---
 
 ### Adjustments
 
+.pull-left-narrow[
 - Year
-
---
-
 - Cohort
+- Location (X &amp; Y in common garden plot)]
 
-
---
-
-- Location (x &amp; y in Common Garden)
+&lt;img src="cg_2005_ex.png" width="425" style="display: block; margin: auto 0 auto auto;" /&gt;
 
 ---
 
@@ -178,11 +185,9 @@ r1 &lt;- rpt(startNum ~ year + yrPlanted  + row + pos + (1|cgPlaId),
             nboot = 1000, npermut = 1000, parallel = TRUE)`
 ```
 ---
-
+`summary(r1)`
 
 ```r
-summary(r1)
-
 Repeatability estimation using the lmm method
 
 Call = rpt(formula = startNum ~ year + yrPlanted + row + pos + (1 | cgPlaId), grname = "cgPlaId", data = phen_19967, datatype = "Gaussian", nboot = 1000, npermut = 1000, parallel = TRUE)
@@ -254,6 +259,11 @@ pos             0.05439    0.02106   2.583
 ## [1] 0.2220795
 ```
 ---
+`r3 &lt;- rpt(startNum ~ year + yrPlanted + row + pos + (1|cgPlaId), 
+          grname = c("cgPlaId", "Fixed", "Residual"),
+          data = phen_19967, datatype = "Gaussian",
+          nboot = 1000, npermut = 1000, parallel = TRUE,
+          ratio = FALSE)" `  #&lt;&lt;
 
 ```r
 cgPlaId (467 groups)
@@ -262,10 +272,6 @@ Variance estimation overview:
     Var     SE   2.5%  97.5% P_permut  LRT_P
 *  4.15  0.502    3.3   5.17    0.667      0
 
-Bootstrapping and Permutation test: 
-            N   Mean Median   2.5%  97.5%
-boot     1000   4.22   4.21    3.3   5.17
-permut   1000  27.24  18.35    0.0  65.64
 
 ------------------------------------------
 Residual
@@ -274,10 +280,6 @@ Variance estimation overview:
     Var     SE   2.5%  97.5% P_permut  LRT_P
 *  14.5  0.504   13.5   15.5       NA     NA
 
-Bootstrapping and Permutation test: 
-            N   Mean Median   2.5%  97.5%
-boot     1000   14.5   14.5   13.5   15.5
-permut   1000     NA     NA     NA     NA
 
 -------------------------------------------------
 Fixed
@@ -285,11 +287,6 @@ Fixed
 Variance estimation overview: 
     Var     SE   2.5%  97.5% P_permut  LRT_P
 *  62.7   1.37   60.2   65.6       NA     NA
-
-Bootstrapping and Permutation test: 
-            N   Mean Median   2.5%  97.5%
-boot     1000   62.9   62.9   60.2   65.6
-permut   1000     NA     NA     NA     NA
 ```
 ---
 

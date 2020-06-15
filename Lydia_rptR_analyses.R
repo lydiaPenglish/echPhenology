@@ -109,21 +109,19 @@ l2a <- lmer(dur ~ year + (1|cgPlaId), data = phen_19967)
 anova(l2, l2a)      # keep!
 
 # adding cohort
-l2b <- lmer(dur ~ year + yrPlanted + (1|cgPlaId), data = phen_19967)
-anova(l2a, l2b)     # keep!
-
-# adding headCt
-l2c <- lmer(dur ~ year + yrPlanted + headCt + (1|cgPlaId), data = phen_19967)
-anova(l2b, l2c)
+l2b  <- lmer(dur ~ year + yrPlanted + (1|cgPlaId), data = phen_19967)
+l2b2 <- lmer(dur ~ yrPlanted + (1|cgPlaId), data = phen_19967)
+anova(l2b, l2a)     # keep!
+anova(l2, l2b2)     # keep!
 
 # adding in row and position
-l2d <- lmer(dur ~ year + yrPlanted + headCt + row + (1|cgPlaId), data = phen_19967)
-l2e <- lmer(dur ~ year + yrPlanted + headCt + pos + (1|cgPlaId), data = phen_19967)
-l2f <- lmer(dur ~ year + yrPlanted + headCt + row + pos + (1|cgPlaId), data = phen_19967)
+l2d <- lmer(dur ~ year + yrPlanted +  row + (1|cgPlaId), data = phen_19967)
+l2e <- lmer(dur ~ year + yrPlanted +  pos + (1|cgPlaId), data = phen_19967)
+l2f <- lmer(dur ~ year + yrPlanted +  row + pos + (1|cgPlaId), data = phen_19967)
 
-anova(l2c, l2d)  # ns
-anova(l2c, l2e)  # ns
-anova(l2c, l2f)
+anova(l2b, l2d)  # ns
+anova(l2b, l2e)  # ns
+anova(l2b, l2f)  # ns - get rid of...?
 
 # are the duration data normal? Meh, yeah looks ok...
 phen_19967 %>% ggplot()+
@@ -133,13 +131,13 @@ phen_19967 %>% ggplot()+
 # Duration: Repeatability models -----------------------------------------------------
 
 # repeatbility model with everything adjusted
-r2 <- rpt(dur ~ year + yrPlanted + headCt + row + pos + (1|cgPlaId), grname = "cgPlaId",
+r2 <- rpt(dur ~ year + yrPlanted + row + pos + (1|cgPlaId), grname = "cgPlaId",
           data = phen_19967, datatype = "Gaussian",
-          nboot = 1000, npermut = 1000)
+          nboot = 1000, npermut = 1000, parallel = TRUE)
 summary(r2) 
 
 # repeatability model without adjusted for row/pos
-r2b <- rpt(dur~ year + yrPlanted + headCt + (1|cgPlaId), grname = "cgPlaId",
+r2b <- rpt(dur~ year + yrPlanted + (1|cgPlaId), grname = "cgPlaId",
            data = phen_19967, datatype = "Gaussian",
            nboot = 1000, npermut = 1000)
 summary(r2b)
