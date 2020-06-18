@@ -6,12 +6,12 @@ library(rptR)
 library(lme4)
 library(ggplot2)
 data("phen_dataset")
-theme_set(theme_bw())
 
 # FFD: fitting mixed models to get correct fixed effects ------------------------------
 
 # graph of distribution
 phen_19967 %>%
+  filter(year != "2016" & year !="2017") %>%
   ggplot(aes(startNum)) +
   geom_histogram(binwidth = 2)+
   facet_wrap(~year)
@@ -98,6 +98,22 @@ r1c <- rpt(dam ~ yrPlanted + row + pos + (1|cgPlaId), grname = "cgPlaId",
 summary(r1c)
  
 
+# FFD: adding site ------------------------------------------------
+
+# site as another random effect?
+s1 <- rpt(startNum ~ year + yrPlanted +  row + pos + (1|site), grname = "site",
+          data = phen_19967, datatype = "Gaussian",
+          nboot = 100, npermut = 100, parallel = TRUE)
+summary(s1)
+
+# site AND cgPlaID as random effects?
+s2 <- rpt(startNum ~ year + yrPlanted +  row + pos + (1|cgPlaId) + (1|site), 
+          grname = c("cgPlaId","site"),
+          data = phen_19967, datatype = "Gaussian",
+          nboot = 100, npermut = 100, parallel = TRUE)
+summary(s2)
+
+
 # Duration: fitting models to get fixed effect adjustments -------------------------
 
 # checking out what factors should be included as fixed effects (aka what should we be adjusting for)
@@ -124,9 +140,22 @@ anova(l2b, l2e)  # ns
 anova(l2b, l2f)  # ns - get rid of...?
 
 # are the duration data normal? Meh, yeah looks ok...
-phen_19967 %>% ggplot()+
+phen_19967 %>%
+  filter(year != "2016" & year !="2017") %>%
+  ggplot()+
   geom_histogram(aes(dur))+
   facet_wrap(~year)
+
+# checking model:
+ggResidpanel::resid_panel(l2f)
+performance::check_model(l2f)
+
+g2f <- glmer(dur ~ year + yrPlanted + (1|cgPlaId), data = phen_19967,
+             family = poisson(link = "log"))   # doesn't converge row/pos included
+performance::check_overdispersion(g2f)
+performance::check_convergence(g2f)
+performance::check_model(g2f)
+ggResidpanel::resid_panel(g2f)
 
 # Duration: Repeatability models -----------------------------------------------------
 
@@ -142,6 +171,44 @@ r2b <- rpt(dur~ year + yrPlanted + (1|cgPlaId), grname = "cgPlaId",
            nboot = 1000, npermut = 1000)
 summary(r2b)
 
+# try poisson repeatability without row/pos - takes a really long time and says it won't converge
+r3 <- rpt(dur ~ year + yrPlanted + (1|cgPlaId), grname = "cgPlaId",
+          data = phen_19967, datatype = "Poisson", link = ("log"),
+          nboot = 0, npermut = 0, parallel = TRUE)
+summary(r3)
+
+# Head count: fitting models ---------------------------------------
+
+# Does head count vary by year? Kind of....
+phen_19967 %>%
+  ggplot(aes(year, headCt))+
+  geom_count(alpha = 0.5)+
+  stat_summary(fun = mean,
+               geom = "errorbar",
+               aes(ymax = ..y.., ymin = ..y..),
+               width = 0.4,
+               size = 2)
+
+h0 <- glmer(headCt ~ 1 + (1|cgPlaId), 
+            data = phen_19967, family = poisson(link = "log"))
+
+h1 <- glmer(headCt ~ yrPlanted + (1|cgPlaId), 
+            data = phen_19967, family = poisson(link = "log"))
+anova(h0, h1)  # ok keep year planted
+performance::check_overdispersion(h1)
+
+# adding year, putting in optimizer from here (https://stats.stackexchange.com/questions/164457/r-glmer-warnings-model-fails-to-converge-model-is-nearly-unidentifiable)
+h2 <- glmer(headCt ~ yrPlanted + year + (1|cgPlaId), 
+            data = phen_19967, family = poisson(link = "log"),
+            control=glmerControl(optimizer="bobyqa",optCtrl=list(maxfun=2e5)))
+summary(h2)
+anova(h2, h1)
+
+r4 <- rpt(headCt ~ yrPlanted + year + (1|cgPlaId), 
+          grname = "cgPlaId",
+          data = phen_19967, datatype = "Poisson", 
+          nboot = 10, npermut = 10, parallel = TRUE)
+summary(r4)
 
 # Is head count related to start date? ---------------------------------------
 

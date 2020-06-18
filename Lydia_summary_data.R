@@ -52,16 +52,25 @@ ggsave("common_garden.png", plot = cg1, path = "./figs")
 # ---- Some basic information - short code snippets ----
 
 # 1. Number of sites that plants came from 
-ped <- read_csv("data-raw/96979899qGenPedigreeLE.csv") 
+ped <- readr::read_csv("data-raw/96979899qGenPedigreeLE.csv") 
 ped_sites <- ped %>%
   group_by(expNm, siteOfOriginPedigree) %>%
   summarize(n = n())
 
 # 2. Number of plants that didn't flower 
 
-phen_19967 %>%
-  anti_join(rowpos, ., by = "cgPlaId") # n = 770
+no_fl <- phen_19967 %>%
+  anti_join(rowpos, ., by = "cgPlaId") %>%   # n = 770 
+  select(cgPlaId) 
 
+# how many of those that have never flowered at still alive - 111 
+no_fl %>%
+  left_join(readr::read_csv("data-raw/cg1CoreData.csv"), by = "cgPlaId") %>%
+  select(ld2018) %>%
+  with(colSums(.))
+ 
+
+# 467 plants did flower
 phen_19967 %>%
   distinct(cgPlaId) %>% tally()
 

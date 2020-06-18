@@ -4,7 +4,8 @@
 # #     in a different location?
 # # I think the best way to do this is to run a separate model for each year and assess if any years have SAC...
 
-library(tidyverse)
+library(dplyr)
+library(ggplot2)
 library(ape)
 data("phen_dataset")
 # General graphics parameters
@@ -36,7 +37,7 @@ for(i in years){
   p <- phen_19967 %>%
     filter(year == i) %>%
     select(cgPlaId, row, pos) %>%
-    column_to_rownames("cgPlaId")
+    tibble::column_to_rownames("cgPlaId")
   pp <- phen_19967 %>%
     filter(year == i)
   cgdists <- as.matrix(dist(as.matrix(p))) # euclidean distance matrix 
@@ -47,10 +48,10 @@ for(i in years){
 
 # extracting output from the list and calculating each years z-score
 moran_output <- output %>%
-  transpose() %>%
+  purrr::transpose() %>%
   as_tibble() %>%
-  unnest(cols = c(observed, expected, sd, p.value)) %>%
-  add_column(years, .before = TRUE) %>%
+  tidyr::unnest(cols = c(observed, expected, sd, p.value)) %>%
+  tibble::add_column(years, .before = TRUE) %>%
   mutate(z_score = (observed-expected)/sd,
          sig     = if_else(p.value < 0.05, "yes", "no"))
 # result there is Spatial autocorrelation in some, but not all, years. (roughly half)

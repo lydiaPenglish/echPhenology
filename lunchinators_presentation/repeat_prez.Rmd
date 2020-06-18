@@ -80,6 +80,7 @@ style_duo_accent(
 
 ---
 ### Previous research on flowering phenology
+--
 
 .large[Earlier flowering plants have a higher seed set than later flowering plants] (Ison and Wagenius, 2014. _JoE_)
 
@@ -144,9 +145,40 @@ rowpos %>%
   
 ```
 
-
 ---
 
+### Census data (1996 - 2018)
+```{r, echo = FALSE, message = FALSE}
+deads <- readr::read_csv("dat/cg1CoreData.csv") %>%
+  filter(yrPlanted == 1996 | yrPlanted == 1997) %>%
+  select(cgPlaId, yrPlanted, starts_with("ld")) %>%
+  mutate(yrPlanted = as.factor(yrPlanted),
+         yrsAlive = rowSums(.[, 3:ncol(.)], na.rm = TRUE))
+
+prop_alive <- deads %>%
+  select(-yrPlanted) %>%
+  apply(2, sum, na.rm = TRUE)
+
+as_tibble(as.list(prop_alive)) %>% 
+  select(-c(cgPlaId, yrsAlive, ld1996)) %>%
+  tidyr::pivot_longer(cols = everything()) %>%
+  mutate(year = stringr::str_remove_all(name, "ld"),
+         prop_alive = value/1237) %>%
+  ggplot()+
+  geom_col(aes(year, 1), fill = "white", color = "#C669D5")+
+  geom_col(aes(year, prop_alive), fill = "#C669D5") +
+  labs(x = NULL, y = NULL)+
+  ggtitle("Proportion of plants still alive")+
+  scale_x_discrete(breaks = c(1997, 2000, 2003, 2006, 2009, 2012, 2015, 2018))+
+  theme_bw()+
+  theme(axis.text = element_text(size = 14),
+        plot.title.position = "plot",
+        plot.title = element_text(size = 17))
+
+  
+```
+
+---
 ### Census data (1996 - 2018)
 
 ```{r, echo = FALSE, out.width=475}
@@ -154,6 +186,7 @@ rowpos %>%
 knitr::include_graphics("first_flowering_age.png")
 
 ```
+
 ---
 
 ### Phenology data (2005 - 2017)
@@ -165,6 +198,8 @@ knitr::include_graphics("hist_phenCt.png")
 ```
 
 #### Removed plants that flowered 0 or 1 time during study period. 
+- 108 flowered once
+- 770 didn't flower at all (111 still alive)
 
 ---
 ### Phenology data (2005 - 2017)
@@ -175,6 +210,15 @@ knitr::include_graphics("phenology_summary.png")
 
 ```
 ---
+### Phenology data (2005 - 2017)
+
+```{r, echo = FALSE, out.width=700}
+
+knitr::include_graphics("flowering_schedules.png")
+
+```
+
+---
 ### Phenology data
 
 .large[
@@ -182,8 +226,9 @@ knitr::include_graphics("phenology_summary.png")
       - `startNum`
 
 - Flowering duration
-
-- Head Count]
+      - Related to head count
+      - More than one flowering head - combined ]
+      
 
 ---
 
@@ -191,7 +236,7 @@ knitr::include_graphics("phenology_summary.png")
 
 _Intra-class Correlation Coefficient (ICC)_
 
-Fraction of total variation that can be attributed to varation among groups. 
+Fraction of total variation that can be attributed to variation among groups. 
 
 $$R = \frac{V_g}{V_g + V_r}$$
 V<sub>g</sub> = among group variance
@@ -227,11 +272,21 @@ knitr::include_graphics("cg_2005_ex.png")
 ```
 
 ---
+
+### Aside - Spatial autocorrelation analysis
+
+Moran's I - calculate separately for each year (better way to do this?)
+
+Some years experience spatial autocorrelation while other's don't...
+
+---
+### Repeatability of FFD
+
 ```{r, eval = FALSE}
 r1 <- rpt(startNum ~ year + yrPlanted  + row + pos + (1|cgPlaId), 
             grname = "cgPlaId",
             data = phen_19967, datatype = "Gaussian",
-            nboot = 1000, npermut = 1000, parallel = TRUE)`
+            nboot = 1000, npermut = 1000, parallel = TRUE)
 ```
 ---
 `summary(r1)`
@@ -303,11 +358,14 @@ pos             0.05439    0.02106   2.583
 
 ```
 ---
-`r3 <- rpt(startNum ~ year + yrPlanted + row + pos + (1|cgPlaId), 
+```{r, eval = FALSE}
+r3 <- rpt(startNum ~ year + yrPlanted + row + pos + (1|cgPlaId), 
           grname = c("cgPlaId", "Fixed", "Residual"),
           data = phen_19967, datatype = "Gaussian",
           nboot = 1000, npermut = 1000, parallel = TRUE,
-          ratio = FALSE)" `  
+          ratio = FALSE) 
+```
+
 ```{r, eval = FALSE}
 
 cgPlaId (467 groups)
@@ -335,15 +393,61 @@ Variance estimation overview:
 
 ```
 ---
+### Repeatability of Duration
 
+```{r, eval = FALSE}
+r2 <- rpt(dur ~ year + yrPlanted + row + pos + (1|cgPlaId), 
+           grname = "cgPlaId",
+           data = phen_19967, datatype = "Gaussian",
+           nboot = 1000, npermut = 1000, parallel = TRUE)
+```
+
+---
+
+```{r, eval = FALSE}
+Repeatability estimation using the lmm method
+
+Call = rpt(formula = dur ~ year + yrPlanted + row + pos + (1 | cgPlaId), grname = "cgPlaId", data = phen_19967, datatype = "Gaussian", nboot = 1000, npermut = 1000, parallel = TRUE)
+
+Data: 2194 observations
+
+cgPlaId (467 groups)
+
+Repeatability estimation overview: 
+      R     SE   2.5%  97.5% P_permut  LRT_P
+  0.178 0.0224  0.137  0.222    0.001      0     #<<
+
+Bootstrapping and Permutation test: 
+            N    Mean  Median   2.5%  97.5%
+boot     1000 0.18041 0.18003  0.137 0.2223
+permut   1000 0.00662 0.00129  0.000 0.0303
+
+Likelihood ratio test: 
+logLik full model = -6397.044
+logLik red. model = -6453.917
+D  = 114, df = 1, P = 7.4e-27
+```
+
+---
+### Extra - Head count and duration relationship:
+
+```{r, echo = FALSE, out.width=700}
+
+knitr::include_graphics("headCt_duration.png")
+
+```
 
 ---
 
 ### Bibliography
 
-Ison et al 2018. 
-Ison & Wagenius 2014
-Stoffel et al. 2017 Methods
+Ison, J.L. and Wagenius, S. (2014). Both flowering time and distance to conspecific plants affect reproduction in Echinacea angustifolia , a common prairie perennial. _J Ecol_. 102:920-929. doi:10.1111/1365-2745.12262
+
+Ison, J.L., Prescott, L.J., Nordstrom, S.W., Waananen, A. and Wagenius, S. (2018), Pollinator‐mediated mechanisms for increased reproductive success in early flowering plants. _Oikos_. 127:1657-1669. doi:10.1111/oik.04882
+
+Nakagawa S, Schielzeth H. (2010). Repeatability for Gaussian and non-Gaussian data: a practical guide for biologists. _Biol Rev Camb Philos Soc_. 85(4):935-956. doi:10.1111/j.1469-185X.2010.00141.x
+
+Stoffel, M.A., Nakagawa, S. and Schielzeth, H. (2017). rptR: repeatability estimation and variance decomposition by generalized linear mixed‐effects models. _Methods Ecol Evol._ 8:1639-1644. doi:10.1111/2041-210X.12797
 
 
 
