@@ -243,6 +243,10 @@ V<sub>g</sub> = among group variance
 
 V<sub>r</sub> = within group (residual) variance
 
+Value from 0 to 1
+
+Sets an upper bound to heritability
+
 --
 
 **Repeatability can be low due to high within group variation *or* low between group variation.**

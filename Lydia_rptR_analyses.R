@@ -58,8 +58,11 @@ summary(l1f)
 # check model
 lmerTest::rand(l1f) # random effect matters
 performance::r2(l1f)
-performance::check_model(l1f)    # looks fine, a little bit of a weird tail
+performance::check_model(l1f)    # looks ok? a little bit of a weird tail
 ggResidpanel::resid_panel(l1f)
+
+l1_log <- lmer(log(startNum) ~ year + yrPlanted + row + pos + (1|cgPlaId), data = phen_19967)
+ggResidpanel::resid_compare(list(l1f, l1_log))
 
 # FFD: repeatability model --------------------------------------------------------------
 
